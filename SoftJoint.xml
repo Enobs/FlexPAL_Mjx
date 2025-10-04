@@ -1,0 +1,34 @@
+<mujoco model="Pick and Place">
+    <!-- set some defaults for units and lighting -->
+    <!-- <compiler angle="degree" meshdir="STL"> -->
+    <compiler angle="degree" meshdir="./assets">
+        <lengthrange mode="muscle" uselimit="true"/>
+    </compiler>
+    <visual>
+        <scale com="0.01" jointlength="0.05" jointwidth="0.03" constraint="0.01"/>
+    </visual>
+    <option gravity="0 0 -9.8" impratio="1"/>
+    <asset>
+        <model name="layer0" file="section_module_0.xml"/>
+    </asset>
+
+    <worldbody>
+        <body name="layer0" pos="0 0 1.5" euler="0 0 0">
+            <attach model="layer0" body="layer_core" prefix="L"/>
+        </body>
+    </worldbody>
+
+
+    <actuator>
+        <position name="muscle_layer00" tendon="Llayer00" ctrllimited="true" ctrlrange="-3000 3000" />
+        <position name="muscle_layer01" tendon="Llayer01" ctrllimited="true" ctrlrange="-3000 3000" />
+        <position name="muscle_layer02" tendon="Llayer02" ctrllimited="true" ctrlrange="-3000 3000" />
+        <position name="muscle_layer10" tendon="LLlayer00" ctrllimited="true" ctrlrange="-3000 3000" />
+        <position name="muscle_layer11" tendon="LLlayer01" ctrllimited="true" ctrlrange="-3000 3000" />
+        <position name="muscle_layer12" tendon="LLlayer02" ctrllimited="true" ctrlrange="-3000 3000" />
+        <position name="muscle_layer20" tendon="LLLlayer00" ctrllimited="true" ctrlrange="-3000 3000" />
+        <position name="muscle_layer21" tendon="LLLlayer01" ctrllimited="true" ctrlrange="-3000 3000" />
+        <position name="muscle_layer22" tendon="LLLlayer02" ctrllimited="true" ctrlrange="-3000 3000" />
+
+    </actuator>
+</mujoco>
