@@ -1,6 +1,7 @@
 <mujoco model="soft joint scene">
   <!-- Add some fluid viscosity to prevent the hanging box from jiggling forever -->
   <option gravity="0 0 -9.81" viscosity="0.1"/>
+  <option timestep="0.002" iterations="400"/>
 
   <include file="SoftJoint.xml"/>
 

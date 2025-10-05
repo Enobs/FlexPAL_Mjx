@@ -16,6 +16,15 @@
         <model name="layer1" file="section_module_1.xml"/>
     </asset>
     <default>
+        <default class="hingeB">
+            <joint stiffness="0.075" damping="0.010" armature="0.005"/>
+        </default>
+        <default class="interZ">
+            <joint type="slide" stiffness='5670' ref="-0.00120" armature="0.008" damping="3.5" frictionloss="0.2" />
+        </default>
+        <default class="secZ">
+            <joint type="slide" stiffness='5670' ref="-0.00120" armature="0.024" damping="6.5" frictionloss="0.2"/>
+        </default>
         <default class="str">
             <mesh scale="0.001 0.001 0.001"/>
             <general biastype="affine"/>
@@ -29,6 +38,7 @@
     </default>
     <worldbody>
         <body name='layer_core'>
+            <inertial pos="0.00 0.00 -0.047" quat="1 0 0 0" mass="0.452" diaginertia="6.975e-4 6.975e-4 5.153e-4"/>
             <geom class="vis" type="mesh" mesh="Mujoco_end" pos="0 0 0" euler= '180 0 0 ' material = 'matte_black_plastic'/>
             <geom class="col" name="Mujoco_end_col_1" type="cylinder" size="0.0225 0.0451" pos="0 0.03 -0.0451"/>
             <geom class="col" name="Mujoco_end_col_2" type="cylinder" size="0.0225 0.0451" pos="0.025981 -0.015 -0.0451"/>
@@ -40,16 +50,13 @@
             <site name="layer20" pos="-0.025981 -0.015 -0.0854 "/>
             <site name="layer21" pos="-0.025981 -0.015 -0.0902 "/>
             <body name='inter_1' pos= '0 0 -0.1064' euler='180 0 0'>
-                <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                <inertial pos="0.00 0.00 0.00125" quat="1 0 0 0" mass="0.0033" diaginertia="7.119e-7 7.119e-7 5.102e-7"/>
                 <geom class="col" name="inter_1_1" type="cylinder" size="0.015 0.0025" pos="0 -0.03 0.0025 "/>
                 <geom class="col" name="inter_1_2" type="cylinder" size="0.015 0.0025" pos="0.025981 0.015 0.0025 "/>
                 <geom class="col" name="inter_1_3" type="cylinder" size="0.015 0.0025" pos="-0.025981 0.015 0.0025 "/>
-                <geom class="vis" name="inter_ellipsoid_0" type="ellipsoid" size="0.0165 0.0167 0.0025" pos="0.000000 -0.030000  0.002" euler="10 0 0" material="matte_black_plastic"/>
-                <geom class="vis" name="inter_ellipsoid_1" type="ellipsoid" size="0.0165 0.0167 0.0025" pos="0.000000 -0.030000 -0.006" euler="10 0 0" material="matte_black_plastic"/>
-
-                <joint name="inter_1_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                <joint name="inter_1_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                <joint name="inter_1_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                <joint name="inter_1_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                <joint name="inter_1_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                <joint name="inter_1_joint_z" class='interZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010"/>
                 <site name="layer02" pos="0 -0.03 0 "/>
                 <site name="layer03" pos="0 -0.03 0.005 "/>
                 <site name="layer12" pos="0.025981 0.015 0 "/>
@@ -57,13 +64,13 @@
                 <site name="layer22" pos="-0.025981 0.015 0 "/>
                 <site name="layer23" pos="-0.025981 0.015 0.005 "/>
                 <body name='inter_2' pos= '0 0 0.0161' euler='0 0 0'>
-                    <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                    <inertial pos="0.00 0.00 0.00125" quat="1 0 0 0" mass="0.0033" diaginertia="7.119e-7 7.119e-7 5.102e-7"/>
                     <geom class="col" name="inter_2_1" type="cylinder" size="0.015 0.0025" pos="0 -0.03 0.0025 "/>
                     <geom class="col" name="inter_2_2" type="cylinder" size="0.015 0.0025" pos="0.025981 0.015 0.0025 "/>
                     <geom class="col" name="inter_2_3" type="cylinder" size="0.015 0.0025" pos="-0.025981 0.015 0.0025 "/>
-                    <joint name="inter_2_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                    <joint name="inter_2_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                    <joint name="inter_2_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                    <joint name="inter_2_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                    <joint name="inter_2_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                    <joint name="inter_2_joint_z" class='interZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010"/>
                     <site name="layer04" pos="0 -0.03 0 "/>
                     <site name="layer05" pos="0 -0.03 0.005 "/>
                     <site name="layer14" pos="0.025981 0.015 0 "/>
@@ -71,15 +78,15 @@
                     <site name="layer24" pos="-0.025981 0.015 0 "/>
                     <site name="layer25" pos="-0.025981 0.015 0.005 "/>
                     <body name='sec_1' pos= '0 0 0.0161' euler='0 0 0'>
-                        <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                        <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
                         <geom class="vis" type="mesh" mesh="Mujoco_Fix_Ring" pos="0 0 0" material = 'matte_black_plastic'/>
                         <geom class="col" name="Mujoco_Fix_Ring_col_1_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
                         <geom class="col" name="Mujoco_Fix_Ring_col_1_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
                         <geom class="col" name="Mujoco_Fix_Ring_col_1_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
                         <geom class="col" name="Mujoco_Fix_Ring_col_1_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
-                        <joint name="sec_1_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                        <joint name="sec_1_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                        <joint name="sec_1_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                        <joint name="sec_1_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                        <joint name="sec_1_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                        <joint name="sec_1_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010" />
                         <site name="layer06" pos="0 -0.03 0 "/>
                         <site name="layer07" pos="0 -0.03 0.005 "/>
                         <site name="layer16" pos="0.025981 0.015 0 "/>
@@ -87,13 +94,13 @@
                         <site name="layer26" pos="-0.025981 0.015 0 "/>
                         <site name="layer27" pos="-0.025981 0.015 0.005 "/>
                         <body name='inter_3' pos= '0 0 0.0162' euler='0 0 0'>
-                            <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                            <inertial pos="0.00 0.00 0.00125" quat="1 0 0 0" mass="0.0033" diaginertia="7.119e-7 7.119e-7 5.102e-7"/>
                             <geom class="col" name="inter_3_1" type="cylinder" size="0.015 0.0025" pos="0 -0.03 0.0025 "/>
                             <geom class="col" name="inter_3_2" type="cylinder" size="0.015 0.0025" pos="0.025981 0.015 0.0025 "/>
                             <geom class="col" name="inter_3_3" type="cylinder" size="0.015 0.0025" pos="-0.025981 0.015 0.0025 "/>
-                            <joint name="inter_3_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                            <joint name="inter_3_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                            <joint name="inter_3_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                            <joint name="inter_3_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                            <joint name="inter_3_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                            <joint name="inter_3_joint_z" class='interZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010" />
                             <site name="layer08" pos="0 -0.03 0 "/>
                             <site name="layer09" pos="0 -0.03 0.005 "/>
                             <site name="layer18" pos="0.025981 0.015 0 "/>
@@ -101,13 +108,13 @@
                             <site name="layer28" pos="-0.025981 0.015 0 "/>
                             <site name="layer29" pos="-0.025981 0.015 0.005 "/>
                             <body name='inter_4' pos= '0 0 0.0161' euler='0 0 0'>
-                                <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                <inertial pos="0.00 0.00 0.00125" quat="1 0 0 0" mass="0.0033" diaginertia="7.119e-7 7.119e-7 5.102e-7"/>
                                 <geom class="col" name="inter_4_1" type="cylinder" size="0.015 0.0025" pos="0 -0.03 0.0025 "/>
                                 <geom class="col" name="inter_4_2" type="cylinder" size="0.015 0.0025" pos="0.025981 0.015 0.0025 "/>
                                 <geom class="col" name="inter_4_3" type="cylinder" size="0.015 0.0025" pos="-0.025981 0.015 0.0025 "/>
-                                <joint name="inter_4_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                <joint name="inter_4_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                <joint name="inter_4_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                                <joint name="inter_4_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                                <joint name="inter_4_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                                <joint name="inter_4_joint_z" class='interZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010" />
                                 <site name="layer010" pos="0 -0.03 0 "/>
                                 <site name="layer011" pos="0 -0.03 0.005 "/>
                                 <site name="layer110" pos="0.025981 0.015 0 "/>
@@ -115,15 +122,15 @@
                                 <site name="layer210" pos="-0.025981 0.015 0 "/>
                                 <site name="layer211" pos="-0.025981 0.015 0.005 "/>
                                 <body name='sec_2' pos= '0 0 0.0161' euler='0 0 0'>
-                                    <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                    <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
                                     <geom class="vis" type="mesh" mesh="Mujoco_Fix_Ring" pos="0 0 0" material = 'matte_black_plastic'/>
                                     <geom class="col" name="Mujoco_Fix_Ring_col_2_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
                                     <geom class="col" name="Mujoco_Fix_Ring_col_2_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
                                     <geom class="col" name="Mujoco_Fix_Ring_col_2_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
                                     <geom class="col" name="Mujoco_Fix_Ring_col_2_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
-                                    <joint name="sec_2_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                    <joint name="sec_2_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                    <joint name="sec_2_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                                    <joint name="sec_2_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                                    <joint name="sec_2_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                                    <joint name="sec_2_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010" />
                                     <site name="layer012" pos="0 -0.03 0 "/>
                                     <site name="layer013" pos="0 -0.03 0.005 "/>
                                     <site name="layer112" pos="0.025981 0.015 0 "/>
@@ -131,13 +138,13 @@
                                     <site name="layer212" pos="-0.025981 0.015 0 "/>
                                     <site name="layer213" pos="-0.025981 0.015 0.005 "/>
                                     <body name='inter_5' pos= '0 0 0.0162' euler='0 0 0'>
-                                        <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                        <inertial pos="0.00 0.00 0.00125" quat="1 0 0 0" mass="0.0033" diaginertia="7.119e-7 7.119e-7 5.102e-7"/>
                                         <geom class="col" name="inter_5_1" type="cylinder" size="0.015 0.0025" pos="0 -0.03 0.0025 "/>
                                         <geom class="col" name="inter_5_2" type="cylinder" size="0.015 0.0025" pos="0.025981 0.015 0.0025 "/>
                                         <geom class="col" name="inter_5_3" type="cylinder" size="0.015 0.0025" pos="-0.025981 0.015 0.0025 "/>
-                                        <joint name="inter_5_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                        <joint name="inter_5_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                        <joint name="inter_5_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                                        <joint name="inter_5_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                                        <joint name="inter_5_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                                        <joint name="inter_5_joint_z" class='interZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010" />
                                         <site name="layer014" pos="0 -0.03 0 "/>
                                         <site name="layer015" pos="0 -0.03 0.005 "/>
                                         <site name="layer114" pos="0.025981 0.015 0 "/>
@@ -145,13 +152,13 @@
                                         <site name="layer214" pos="-0.025981 0.015 0 "/>
                                         <site name="layer215" pos="-0.025981 0.015 0.005 "/>
                                         <body name='inter_6' pos= '0 0 0.0161' euler='0 0 0'>
-                                            <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                            <inertial pos="0.00 0.00 0.00125" quat="1 0 0 0" mass="0.0033" diaginertia="7.119e-7 7.119e-7 5.102e-7"/>
                                             <geom class="col" name="inter_6_1" type="cylinder" size="0.015 0.0025" pos="0 -0.03 0.0025 "/>
                                             <geom class="col" name="inter_6_2" type="cylinder" size="0.015 0.0025" pos="0.025981 0.015 0.0025 "/>
                                             <geom class="col" name="inter_6_3" type="cylinder" size="0.015 0.0025" pos="-0.025981 0.015 0.0025 "/>
-                                            <joint name="inter_6_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                            <joint name="inter_6_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                            <joint name="inter_6_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                                            <joint name="inter_6_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                                            <joint name="inter_6_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-6 6"/>
+                                            <joint name="inter_6_joint_z" class='interZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010" />
                                             <site name="layer016" pos="0 -0.03 0 "/>
                                             <site name="layer017" pos="0 -0.03 0.005 "/>
                                             <site name="layer116" pos="0.025981 0.015 0 "/>
@@ -159,15 +166,15 @@
                                             <site name="layer216" pos="-0.025981 0.015 0 "/>
                                             <site name="layer217" pos="-0.025981 0.015 0.005 "/>
                                             <body name='sec_3' pos= '0 0 0.0161' euler='0 0 0'>
-                                                <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                                <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
                                                 <geom class="vis" type="mesh" mesh="Mujoco_Fix_Ring" pos="0 0 0" material = 'matte_black_plastic'/>
                                                 <geom class="col" name="Mujoco_Fix_Ring_col_3_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
                                                 <geom class="col" name="Mujoco_Fix_Ring_col_3_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
                                                 <geom class="col" name="Mujoco_Fix_Ring_col_3_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
                                                 <geom class="col" name="Mujoco_Fix_Ring_col_3_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
-                                                <joint name="sec_3_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                <joint name="sec_3_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                <joint name="sec_3_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                                                <joint name="sec_3_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                <joint name="sec_3_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                <joint name="sec_3_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010" />
                                                 <site name="layer018" pos="0 -0.03 0 "/>
                                                 <site name="layer019" pos="0 -0.03 0.005 "/>
                                                 <site name="layer118" pos="0.025981 0.015 0 "/>
@@ -175,13 +182,13 @@
                                                 <site name="layer218" pos="-0.025981 0.015 0 "/>
                                                 <site name="layer219" pos="-0.025981 0.015 0.005 "/>
                                                 <body name='inter_7' pos= '0 0 0.0162' euler='0 0 0'>
-                                                    <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                                    <inertial pos="0.00 0.00 0.00125" quat="1 0 0 0" mass="0.0033" diaginertia="7.119e-7 7.119e-7 5.102e-7"/>
                                                     <geom class="col" name="inter_7_1" type="cylinder" size="0.015 0.0025" pos="0 -0.03 0.0025 "/>
                                                     <geom class="col" name="inter_7_2" type="cylinder" size="0.015 0.0025" pos="0.025981 0.015 0.0025 "/>
                                                     <geom class="col" name="inter_7_3" type="cylinder" size="0.015 0.0025" pos="-0.025981 0.015 0.0025 "/>
-                                                    <joint name="inter_7_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                    <joint name="inter_7_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                    <joint name="inter_7_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                                                    <joint name="inter_7_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                    <joint name="inter_7_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                    <joint name="inter_7_joint_z" class='interZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010" />
                                                     <site name="layer020" pos="0 -0.03 0 "/>
                                                     <site name="layer021" pos="0 -0.03 0.005 "/>
                                                     <site name="layer120" pos="0.025981 0.015 0 "/>
@@ -189,13 +196,13 @@
                                                     <site name="layer220" pos="-0.025981 0.015 0 "/>
                                                     <site name="layer221" pos="-0.025981 0.015 0.005 "/>
                                                     <body name='inter_8' pos= '0 0 0.0161' euler='0 0 0'>
-                                                        <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                                        <inertial pos="0.00 0.00 0.00125" quat="1 0 0 0" mass="0.0033" diaginertia="7.119e-7 7.119e-7 5.102e-7"/>
                                                         <geom class="col" name="inter_8_1" type="cylinder" size="0.015 0.0025" pos="0 -0.03 0.0025 "/>
                                                         <geom class="col" name="inter_8_2" type="cylinder" size="0.015 0.0025" pos="0.025981 0.015 0.0025 "/>
                                                         <geom class="col" name="inter_8_3" type="cylinder" size="0.015 0.0025" pos="-0.025981 0.015 0.0025 "/>
-                                                        <joint name="inter_8_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                        <joint name="inter_8_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                        <joint name="inter_8_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                                                        <joint name="inter_8_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                        <joint name="inter_8_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                        <joint name="inter_8_joint_z" class='interZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010" />
                                                         <site name="layer022" pos="0 -0.03 0 "/>
                                                         <site name="layer023" pos="0 -0.03 0.005 "/>
                                                         <site name="layer122" pos="0.025981 0.015 0 "/>
@@ -203,15 +210,15 @@
                                                         <site name="layer222" pos="-0.025981 0.015 0 "/>
                                                         <site name="layer223" pos="-0.025981 0.015 0.005 "/>
                                                         <body name='sec_4' pos= '0 0 0.0161' euler='0 0 0'>
-                                                            <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                                            <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
                                                             <geom class="vis" type="mesh" mesh="Mujoco_Fix_Ring" pos="0 0 0" material = 'matte_black_plastic'/>
                                                             <geom class="col" name="Mujoco_Fix_Ring_col_4_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
                                                             <geom class="col" name="Mujoco_Fix_Ring_col_4_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
                                                             <geom class="col" name="Mujoco_Fix_Ring_col_4_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
                                                             <geom class="col" name="Mujoco_Fix_Ring_col_4_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
-                                                            <joint name="sec_4_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                            <joint name="sec_4_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                            <joint name="sec_4_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                                                            <joint name="sec_4_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                            <joint name="sec_4_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                            <joint name="sec_4_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010" />
                                                             <site name="layer024" pos="0 -0.03 0 "/>
                                                             <site name="layer025" pos="0 -0.03 0.005 "/>
                                                             <site name="layer124" pos="0.025981 0.015 0 "/>
@@ -219,13 +226,13 @@
                                                             <site name="layer224" pos="-0.025981 0.015 0 "/>
                                                             <site name="layer225" pos="-0.025981 0.015 0.005 "/>
                                                             <body name='inter_9' pos= '0 0 0.0162' euler='0 0 0'>
-                                                                <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                                                <inertial pos="0.00 0.00 0.00125" quat="1 0 0 0" mass="0.0033" diaginertia="7.119e-7 7.119e-7 5.102e-7"/>
                                                                 <geom class="col" name="inter_9_1" type="cylinder" size="0.015 0.0025" pos="0 -0.03 0.0025 "/>
                                                                 <geom class="col" name="inter_9_2" type="cylinder" size="0.015 0.0025" pos="0.025981 0.015 0.0025 "/>
                                                                 <geom class="col" name="inter_9_3" type="cylinder" size="0.015 0.0025" pos="-0.025981 0.015 0.0025 "/>
-                                                                <joint name="inter_9_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                                <joint name="inter_9_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                                <joint name="inter_9_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                                                                <joint name="inter_9_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                                <joint name="inter_9_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                                <joint name="inter_9_joint_z" class='interZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010" />
                                                                 <site name="layer026" pos="0 -0.03 0 "/>
                                                                 <site name="layer027" pos="0 -0.03 0.005 "/>
                                                                 <site name="layer126" pos="0.025981 0.015 0 "/>
@@ -233,13 +240,13 @@
                                                                 <site name="layer226" pos="-0.025981 0.015 0 "/>
                                                                 <site name="layer227" pos="-0.025981 0.015 0.005 "/>
                                                                 <body name='inter_10' pos= '0 0 0.0162' euler='0 0 0'>
-                                                                    <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                                                    <inertial pos="0.00 0.00 0.00125" quat="1 0 0 0" mass="0.0033" diaginertia="7.119e-7 7.119e-7 5.102e-7"/>
                                                                     <geom class="col" name="inter_10_1" type="cylinder" size="0.015 0.0025" pos="0 -0.03 0.0025 "/>
                                                                     <geom class="col" name="inter_10_2" type="cylinder" size="0.015 0.0025" pos="0.025981 0.015 0.0025 "/>
                                                                     <geom class="col" name="inter_10_3" type="cylinder" size="0.015 0.0025" pos="-0.025981 0.015 0.0025 "/>
-                                                                    <joint name="inter_10_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                                    <joint name="inter_10_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                                    <joint name="inter_10_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                                                                    <joint name="inter_10_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                                    <joint name="inter_10_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                                    <joint name="inter_10_joint_z" class='interZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010" />
                                                                     <site name="layer028" pos="0 -0.03 0 "/>
                                                                     <site name="layer029" pos="0 -0.03 0.005 "/>
                                                                     <site name="layer128" pos="0.025981 0.015 0 "/>
@@ -247,15 +254,15 @@
                                                                     <site name="layer228" pos="-0.025981 0.015 0 "/>
                                                                     <site name="layer229" pos="-0.025981 0.015 0.005 "/>
                                                                     <body name='sec_5' pos= '0 0 0.0161' euler='0 0 0'>
-                                                                        <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                                                        <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
                                                                         <geom class="vis" type="mesh" mesh="Mujoco_Fix_Ring" pos="0 0 0" material = 'matte_black_plastic'/>
                                                                         <geom class="col" name="Mujoco_Fix_Ring_col_5_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
                                                                         <geom class="col" name="Mujoco_Fix_Ring_col_5_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
                                                                         <geom class="col" name="Mujoco_Fix_Ring_col_5_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
                                                                         <geom class="col" name="Mujoco_Fix_Ring_col_5_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
-                                                                        <joint name="sec_5_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242" limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                                        <joint name="sec_5_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242" limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                                        <joint name="sec_5_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242" limited="true" range="0 0.015" stiffness="5000" />
+                                                                        <joint name="sec_5_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080" limited="true" range="-8 8"/>
+                                                                        <joint name="sec_5_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080" limited="true" range="-8 8"/>
+                                                                        <joint name="sec_5_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0080" limited="true" range="-0.0078 0.0010" />
                                                                         <site name="layer030" pos="0 -0.03 0 "/>
                                                                         <site name="layer031" pos="0 -0.03 0.005 "/>
                                                                         <site name="layer130" pos="0.025981 0.015 0 "/>
@@ -263,13 +270,13 @@
                                                                         <site name="layer230" pos="-0.025981 0.015 0 "/>
                                                                         <site name="layer231" pos="-0.025981 0.015 0.005 "/>
                                                                         <body name='inter_11' pos= '0 0 0.0162' euler='0 0 0'>
-                                                                            <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                                                            <inertial pos="0.00 0.00 0.00125" quat="1 0 0 0" mass="0.0033" diaginertia="7.119e-7 7.119e-7 5.102e-7"/>
                                                                             <geom class="col" name="inter_11_1" type="cylinder" size="0.015 0.0025" pos="0 -0.03 0.0025 "/>
                                                                             <geom class="col" name="inter_11_2" type="cylinder" size="0.015 0.0025" pos="0.025981 0.015 0.0025 "/>
                                                                             <geom class="col" name="inter_11_3" type="cylinder" size="0.015 0.0025" pos="-0.025981 0.015 0.0025 "/>
-                                                                            <joint name="inter_11_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242" limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                                            <joint name="inter_11_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242" limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                                            <joint name="inter_11_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242" limited="true" range="0 0.015" stiffness="5000" />
+                                                                            <joint name="inter_11_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080" limited="true" range="-8 8"/>
+                                                                            <joint name="inter_11_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080" limited="true" range="-8 8"/>
+                                                                            <joint name="inter_11_joint_z" class='interZ' type="slide" axis="0 0 1" pos="0 0 -0.0080" limited="true" range="-0.0078 0.0010" />
                                                                             <site name="layer032" pos="0 -0.03 0 "/>
                                                                             <site name="layer033" pos="0 -0.03 0.005 "/>
                                                                             <site name="layer132" pos="0.025981 0.015 0 "/>
@@ -277,13 +284,13 @@
                                                                             <site name="layer232" pos="-0.025981 0.015 0 "/>
                                                                             <site name="layer233" pos="-0.025981 0.015 0.005 "/>
                                                                             <body name='inter_12' pos= '0 0 0.0161' euler='0 0 0'>
-                                                                                <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                                                                <inertial pos="0.00 0.00 0.00125" quat="1 0 0 0" mass="0.0033" diaginertia="7.119e-7 7.119e-7 5.102e-7"/>
                                                                                 <geom class="col" name="inter_12_1" type="cylinder" size="0.015 0.0025" pos="0 -0.03 0.0025 "/>
                                                                                 <geom class="col" name="inter_12_2" type="cylinder" size="0.015 0.0025" pos="0.025981 0.015 0.0025 "/>
                                                                                 <geom class="col" name="inter_12_3" type="cylinder" size="0.015 0.0025" pos="-0.025981 0.015 0.0025 "/>
-                                                                                <joint name="inter_12_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242" limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                                                <joint name="inter_12_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242" limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                                                <joint name="inter_12_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242" limited="true" range="0 0.015" stiffness="5000" />
+                                                                                <joint name="inter_12_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080" limited="true" range="-8 8"/>
+                                                                                <joint name="inter_12_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080" limited="true" range="-8 8"/>
+                                                                                <joint name="inter_12_joint_z" class='interZ' type="slide" axis="0 0 1" pos="0 0 -0.0080" limited="true" range="-0.0078 0.0010" />
                                                                                 <site name="layer034" pos="0 -0.03 0 "/>
                                                                                 <site name="layer035" pos="0 -0.03 0.005 "/>
                                                                                 <site name="layer134" pos="0.025981 0.015 0 "/>
@@ -291,14 +298,14 @@
                                                                                 <site name="layer234" pos="-0.025981 0.015 0 "/>
                                                                                 <site name="layer235" pos="-0.025981 0.015 0.005 "/>
                                                                                 <body name='sec_6' pos= '0 0 0.0161' euler='0 0 180'>
-                                                                                    <inertial pos="0.00 0.00 -0.0" quat="0.1 -0.0327699 0.0158246 0.382067" mass="0.532" diaginertia="0.0113804 0.0112778 0.00146458"/>
+                                                                                    <inertial pos="0.00 0.00 0.0045" quat="1 0 0 0" mass="0.036" diaginertia="2.092e-6 2.092e-6 4.135e-6"/>
                                                                                     <geom class="vis" type="mesh" mesh="Cap" pos="0 0 0" material = 'matte_black_plastic'/>
                                                                                     <geom class="col" name="Cap_1" type="cylinder" size="0.02 0.004" pos="0 0.03 0.004 "/>
                                                                                     <geom class="col" name="Cap_2" type="cylinder" size="0.02 0.004" pos="0.025981 -0.015 0.004 "/>
                                                                                     <geom class="col" name="Cap_3" type="cylinder" size="0.02 0.004" pos="-0.025981 -0.015 0.004 "/>
-                                                                                    <joint name="sec_6_joint_x" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                                                    <joint name="sec_6_joint_y" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-13.25 13.25" damping='0.4'/>
-                                                                                    <joint name="sec_6_joint_z" type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="0 0.015" stiffness="5000" />
+                                                                                    <joint name="sec_6_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                                                    <joint name="sec_6_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0080  " limited="true" range="-8 8"/>
+                                                                                    <joint name="sec_6_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0080  " limited="true" range="-0.0078 0.0010" />
                                                                                     <site name="layer036" pos="0 0.03 0.0048 "/>
                                                                                     <site name="layer037" pos="0 0.03 0 "/>
                                                                                     <site name="layer136" pos="-0.025981 -0.015 0.0048 "/>
@@ -329,7 +336,7 @@
         </body>
     </worldbody>
     <tendon >
-        <spatial name="layer00" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" solimplimit="0.001 0.001 0.001 0.5 1" solreflimit="-100 -0" stiffness="8000" damping="0.5">
+        <spatial name="layer00" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '0.5'>
             <site site="layer00"/>
             <site site="layer01"/>
             <site site="layer02"/>
@@ -368,7 +375,7 @@
             <site site="layer036"/>
             <site site="layer037"/>
         </spatial>
-        <spatial name="layer01" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" solimplimit="0.001 0.001 0.001 0.5 1" solreflimit="-100 -0" stiffness="8000" damping="0.5">
+        <spatial name="layer01" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '0.5'>
             <site site="layer10"/>
             <site site="layer11"/>
             <site site="layer12"/>
@@ -407,7 +414,7 @@
             <site site="layer136"/>
             <site site="layer137"/>
         </spatial>
-        <spatial name="layer02" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" solimplimit="0.001 0.001 0.001 0.5 1" solreflimit="-100 -0" stiffness="8000" damping="0.5">
+        <spatial name="layer02" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '0.5'>
             <site site="layer20"/>
             <site site="layer21"/>
             <site site="layer22"/>
@@ -448,39 +455,39 @@
         </spatial>
     </tendon>
     <equality>
-        <joint joint1="inter_1_joint_x" joint2="inter_2_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_1_joint_y" joint2="inter_2_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_2_joint_x" joint2="sec_1_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_2_joint_y" joint2="sec_1_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="sec_1_joint_x" joint2="inter_3_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="sec_1_joint_y" joint2="inter_3_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_3_joint_x" joint2="inter_4_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_3_joint_y" joint2="inter_4_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_4_joint_x" joint2="sec_2_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_4_joint_y" joint2="sec_2_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="sec_2_joint_x" joint2="inter_5_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="sec_2_joint_y" joint2="inter_5_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_5_joint_x" joint2="inter_6_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_5_joint_y" joint2="inter_6_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_6_joint_x" joint2="sec_3_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_6_joint_y" joint2="sec_3_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="sec_3_joint_x" joint2="inter_7_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="sec_3_joint_y" joint2="inter_7_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_7_joint_x" joint2="inter_8_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_7_joint_y" joint2="inter_8_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_8_joint_x" joint2="sec_4_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_8_joint_y" joint2="sec_4_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="sec_4_joint_x" joint2="inter_9_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="sec_4_joint_y" joint2="inter_9_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_9_joint_x" joint2="inter_10_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_9_joint_y" joint2="inter_10_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_10_joint_x" joint2="sec_5_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_10_joint_y" joint2="sec_5_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="sec_5_joint_x" joint2="inter_11_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="sec_5_joint_y" joint2="inter_11_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_11_joint_x" joint2="inter_12_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_11_joint_y" joint2="inter_12_joint_y" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_12_joint_x" joint2="sec_6_joint_x" polycoef="0 2 0 0 0"/>
-        <joint joint1="inter_12_joint_y" joint2="sec_6_joint_y" polycoef="0 2 0 0 0"/>
+        <joint joint1="inter_1_joint_x" joint2="inter_2_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_1_joint_y" joint2="inter_2_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_2_joint_x" joint2="sec_1_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_2_joint_y" joint2="sec_1_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_1_joint_x" joint2="inter_3_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_1_joint_y" joint2="inter_3_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_3_joint_x" joint2="inter_4_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_3_joint_y" joint2="inter_4_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_4_joint_x" joint2="sec_2_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_4_joint_y" joint2="sec_2_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_2_joint_x" joint2="inter_5_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_2_joint_y" joint2="inter_5_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_5_joint_x" joint2="inter_6_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_5_joint_y" joint2="inter_6_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_6_joint_x" joint2="sec_3_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_6_joint_y" joint2="sec_3_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_3_joint_x" joint2="inter_7_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_3_joint_y" joint2="inter_7_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_7_joint_x" joint2="inter_8_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_7_joint_y" joint2="inter_8_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_8_joint_x" joint2="sec_4_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_8_joint_y" joint2="sec_4_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_4_joint_x" joint2="inter_9_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_4_joint_y" joint2="inter_9_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_9_joint_x" joint2="inter_10_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_9_joint_y" joint2="inter_10_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_10_joint_x" joint2="sec_5_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_10_joint_y" joint2="sec_5_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_5_joint_x" joint2="inter_11_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_5_joint_y" joint2="inter_11_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_11_joint_x" joint2="inter_12_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_11_joint_y" joint2="inter_12_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_12_joint_x" joint2="sec_6_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_12_joint_y" joint2="sec_6_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
     </equality>
 </mujoco>

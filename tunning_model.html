@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MuJoCo 气动波纹管调参档案（18节 × 3腱并联）</title>
+<style>
+  :root{
+    --bg:#0f1117; --panel:#151823; --muted:#9aa4b2; --text:#e6eaf0; --accent:#62d5ff;
+    --ok:#34d399; --warn:#f59e0b; --bad:#f87171; --code:#0b1020; --table:#1a1f2e;
+  }
+  *{box-sizing:border-box} body{margin:0; background:var(--bg); color:var(--text); font:16px/1.6 system-ui,Segoe UI,PingFang SC,Inter,sans-serif}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  header{padding:28px 20px;background:linear-gradient(180deg,#101424 0%,#0f1117 100%); border-bottom:1px solid #252b3a}
+  h1{margin:0 0 6px;font-size:26px} .sub{color:var(--muted)}
+  main{max-width:1100px;margin:0 auto;padding:24px 16px 80px;display:grid;grid-template-columns:280px 1fr;gap:16px}
+  nav{position:sticky;top:16px;align-self:start;background:var(--panel);border:1px solid #252b3a;border-radius:12px;padding:14px}
+  nav h3{margin:0 0 8px;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  nav a{display:block;padding:6px 8px;border-radius:8px;color:#cfd6e3}
+  nav a:hover{background:#20263a}
+  section{background:var(--panel);border:1px solid #252b3a;border-radius:12px;padding:18px;margin-bottom:16px}
+  h2{margin:0 0 12px;font-size:20px}
+  h3{margin:16px 0 8px;font-size:18px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .note{color:var(--muted)}
+  .kbd{padding:1px 6px;border:1px solid #3a4359;border-radius:6px;background:#121826;color:#cfd6e3}
+  code,pre{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+  pre{background:var(--code);border:1px solid #252b3a;border-radius:10px;padding:12px;overflow:auto}
+  table{width:100%;border-collapse:collapse;background:var(--table);border:1px solid #2a3042;border-radius:8px;overflow:hidden}
+  th,td{padding:8px 10px;border-bottom:1px solid #273049}
+  th{background:#1b2031;text-align:left;color:#cfe3ff}
+  tr:last-child td{border-bottom:none}
+  .tag{display:inline-block;padding:2px 8px;border:1px solid #2b334a;border-radius:999px;background:#121826;color:#cfd6e3;margin-right:6px}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+  details{border:1px solid #2a3042;border-radius:10px;padding:10px;background:#121622}
+  summary{cursor:pointer;color:#cfe3ff}
+  .foot{color:#8390a3;font-size:13px;margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>MuJoCo 气动波纹管调参档案</h1>
+  <div class="sub">结构：18 节（12 inter + 6 sec）× 3 根腱并联 · 目标：轴向 ΔL≈0.14 m · 弯曲极限 ±135° ·
+    <span class="tag">angle="degree"</span>
+    <span class="tag">N·m/deg</span>
+    <span class="tag">N/m</span>
+  </div>
+</header>
+
+<main>
+  <nav>
+    <h3>目录</h3>
+    <a href="#setup">0. 统一设定</a>
+    <a href="#axial">1. 轴向 slide.z</a>
+    <a href="#bend">2. 弯曲 hinge</a>
+    <a href="#tendon">3. 腱（tendon）角色</a>
+    <a href="#equality">4. Equality 策略</a>
+    <a href="#pressure">5. 压力→张力映射</a>
+    <a href="#numerics">6. 数值稳定</a>
+    <a href="#sensors">7. 传感器配置</a>
+    <a href="#validation">8. 验证流程</a>
+    <a href="#scaling">9. 节数扩展规则</a>
+    <a href="#defaults">10. 推荐 &lt;default&gt;</a>
+    <a href="#faq">11. 常见问题排查</a>
+  </nav>
+
+  <div>
+    <section id="setup">
+      <h2>0) 统一设定</h2>
+      <ul>
+        <li><b>角度单位</b>：<code>&lt;compiler angle="degree"&gt;</code> → hinge 的 <code>range/stiffness/damping</code> 以 <b>度</b>计，MuJoCo 内部自动换算为弧度。</li>
+        <li><b>视觉/碰撞分离</b>：视觉几何 <code>contype=0 conaffinity=0 density=0</code>；碰撞/承重用 primitive + <code>&lt;inertial&gt;</code> 或 <code>density</code>。</li>
+        <li><b>总结构</b>：18 节串联（12 inter + 6 sec），3 根腱并联（沿轴向三条路径）。</li>
+      </ul>
+    </section>
+
+    <section id="axial">
+      <h2>1) 轴向 <code>slide.z</code> — 压缩弹性</h2>
+      <div class="row">
+        <div>
+          <h3>实测 → 等效刚度</h3>
+          <ul>
+            <li>单根：1.5 kg ≈ 14.7 N → 140 mm ⇒ <b>105 N/m</b></li>
+            <li>三根并联：<b>315 N/m</b></li>
+            <li>18 节串联（每段）：<b>5670 N/m</b></li>
+          </ul>
+          <p class="note">如果未来采用“三根整体 1.5 kg → 140 mm”的口径，则每段改为 1890 N/m。</p>
+        </div>
+        <div>
+          <h3>行程 & 阻尼/惯量</h3>
+          <ul>
+            <li>整根 0.28 → 0.14 m（ΔL=0.14）。当前形态约在最长 ⇒ 每段 <code>range="-0.0078 0.0010"</code>（只压缩，留1 mm余量）。</li>
+            <li>inter 段：<code>stiff=5670</code>，<code>damp=3.5</code> N·s/m，<code>armature=0.008~0.01</code> kg</li>
+            <li>sec 段：<code>stiff=5670</code>，<code>damp=6.5</code> N·s/m，<code>armature=0.02~0.03</code> kg</li>
+          </ul>
+        </div>
+      </div>
+      <details><summary>为什么这样定？</summary>
+        <p>串/并联弹簧的等效关系：并联刚度相加，串联刚度按倒数相加。我们先从单根等效出发（105 N/m），乘以3得到并联（315 N/m），再乘以18 得到每节（5670 N/m）。阻尼取 30–40% 临界，armature 用于抑制高频模态。</p>
+      </details>
+    </section>
+
+    <section id="bend">
+      <h2>2) 弯曲 <code>hinge x/y</code> — 曲率弹性</h2>
+      <div class="row">
+        <div>
+          <h3>目标与推导</h3>
+          <ul>
+            <li>最大弯曲角：135°；反作用力：0.8 kg ≈ 7.85 N；有效半径 r≈0.026 m。</li>
+            <li>等效力矩 M=F·r ≈ 0.204 N·m；整根刚度（rad）：<code>kθ_total≈0.086 N·m/rad</code>。</li>
+            <li>18 节均分：<code>kθ_seg≈1.56 N·m/rad</code>；degree 模式：<b>0.03–0.05 N·m/deg</b>。</li>
+          </ul>
+        </div>
+        <div>
+          <h3>建议参数（degree 模式）</h3>
+          <ul>
+            <li>每节角度范围：<code>range="-7.5 7.5"</code>（18 节 → ±135°）</li>
+            <li><code>stiffness="0.03~0.05"</code> N·m/deg，<code>damping="0.005~0.01"</code> N·m·s/deg</li>
+            <li><code>armature="0.005"</code> kg·m²</li>
+          </ul>
+          <p class="note">想更“自然”：根部±6°，中段±8°，末端±9°（总约 138°）。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="tendon">
+      <h2>3) 腱（tendon）— 选择角色</h2>
+      <h3>角色 A：纯驱动（推荐起步）</h3>
+      <ul>
+        <li><code>stiffness=0</code>，<code>damping=0.5</code>，<code>limited=false</code> 或宽 range。</li>
+        <li>用 motor 直接施力：更易标定，不与关节弹簧“双计”。</li>
+      </ul>
+      <h3>角色 B：带被动弹性</h3>
+      <ul>
+        <li>每根 <code>stiffness≈50~150</code> N/m，<code>damping≈0.3~1.0</code> N·s/m。</li>
+        <li>若加腱刚度，应同步 <b>降低 hinge 刚度</b>（如 0.035→0.025 N·m/deg）。</li>
+      </ul>
+      <details><summary>估算公式</summary>
+        <p>整根：<code>kθ_total≈0.086 N·m/rad</code>；半径 r≈0.026 m；近似 <code>kθ≈r² K_t</code> → 单根腱 <code>K_t≈128 N/m</code> 起步。</p>
+      </details>
+    </section>
+
+    <section id="equality">
+      <h2>4) Equality（恒曲率 vs 自然曲率）</h2>
+      <ul>
+        <li>严格恒曲率：相邻节都设 <code>B=A</code>（<code>polycoef="0 1 0 0 0"</code>）。</li>
+        <li>更自然：每 2–3 节连一次 equality，允许曲率分布略有变化、也更稳。</li>
+      </ul>
+    </section>
+
+    <section id="pressure">
+      <h2>5) 压力 → 张力 映射</h2>
+      <p><b>F = ΔP · A_eff</b>，A_eff≈π(d/2)²。若 d≈25 mm → A_eff≈4.9e-4 m² → gear≈<b>0.49 N/kPa</b>。</p>
+<pre><code>&lt;actuator&gt;
+  &lt;motor name="F0" tendon="Llayer00" gear="0.49" ctrlrange="-30 0"/&gt;
+  &lt;motor name="F1" tendon="Llayer01" gear="0.49" ctrlrange="-30 0"/&gt;
+  &lt;motor name="F2" tendon="Llayer02" gear="0.49" ctrlrange="-30 0"/&gt;
+&lt;/actuator&gt;
+</code></pre>
+      <table>
+        <tr><th>压力 (kPa)</th><th>等效力 (N) @ gear=0.49</th></tr>
+        <tr><td>−10</td><td>≈ 4.9</td></tr>
+        <tr><td>−30</td><td>≈ 14.7</td></tr>
+      </table>
+      <p class="note">轴向压缩标定（三根并联、单根 1.5 kg 数据）：每根约 −30 kPa（或 14.7 N），看 ΔL≈0.14 m；偏差 → 统一缩放 slide stiffness。</p>
+    </section>
+
+    <section id="numerics">
+      <h2>6) 数值稳定</h2>
+<pre><code>&lt;option timestep="0.001" iterations="300"/&gt;</code></pre>
+      <ul>
+        <li>需要时临时 <code>timestep=0.0005</code>。</li>
+        <li><code>armature</code> 对长链+高刚度很关键；避免不同 body 碰撞体在静态就重叠。</li>
+      </ul>
+    </section>
+
+    <section id="sensors">
+      <h2>7) 传感器配置</h2>
+<pre><code>&lt;sensor&gt;
+  &lt;sensor type="tendonpos" name="L_t0" tendon="Llayer00"/&gt;
+  &lt;sensor type="tendonfrc" name="T_t0" tendon="Llayer00"/&gt;
+  &lt;sensor type="tendonpos" name="L_t1" tendon="Llayer01"/&gt;
+  &lt;sensor type="tendonfrc" name="T_t1" tendon="Llayer01"/&gt;
+  &lt;sensor type="tendonpos" name="L_t2" tendon="Llayer02"/&gt;
+  &lt;sensor type="tendonfrc" name="T_t2" tendon="Llayer02"/&gt;
+
+  &lt;sensor type="framepos" name="base_p" objtype="body" objname="layer_core" refframe="world"/&gt;
+  &lt;sensor type="framepos" name="tip_p"  objtype="body" objname="mount"      refframe="world"/&gt;
+
+  &lt;sensor type="jointpos" name="z_inter_1" joint="inter_1_joint_z"/&gt;
+  &lt;sensor type="jointpos" name="ang_sec_1x" joint="sec_1_joint_x"/&gt;
+&lt;/sensor&gt;
+</code></pre>
+      <p>核心读数：<code>tendonfrc</code>（张力）、<code>tendonpos</code>（长度）、<code>tip_p.z−base_p.z</code>（总长度/压缩量）。</p>
+    </section>
+
+    <section id="validation">
+      <h2>8) 验证流程</h2>
+      <h3>轴向压缩</h3>
+      <ol>
+        <li>三根各施 ≈ 14.7 N（或 −30 kPa）。</li>
+        <li>检查 <code>tip_p.z − base_p.z ≈ 0.14 m</code>。</li>
+        <li>偏差 → 统一缩放所有 slide <code>stiffness</code>（一次 ×0.9 或 ×1.1）。</li>
+      </ol>
+      <h3>弯曲</h3>
+      <ol>
+        <li>差动施压（如 −10, −30, −30 kPa）。</li>
+        <li>末端平滑弯 ≈ 135°；放手不过冲。</li>
+        <li>角度不足 → 提 hinge <code>stiffness</code>；过快/振荡 → 提 <code>damping</code> 或 <code>armature</code>。</li>
+      </ol>
+    </section>
+
+    <section id="scaling">
+      <h2>9) 节数扩展规则</h2>
+      <p>从 18 节 → 36 节，若希望总弯曲刚度不变：</p>
+      <p><code>kθ_per_segment(new) = kθ_per_segment(old) × 18/36 = 0.5 ×</code></p>
+      <p>即每节 hinge <code>stiffness</code> 减半。</p>
+    </section>
+
+    <section id="defaults">
+      <h2>10) 推荐 &lt;default&gt; 片段（可直接用）</h2>
+<pre><code>&lt;default&gt;
+  &lt;default class="hingeB"&gt;
+    &lt;joint type="hinge" stiffness="0.035" damping="0.007" armature="0.005"
+           limited="true" range="-7.5 7.5"/&gt;
+  &lt;/default&gt;
+
+  &lt;default class="slideZ_inter"&gt;
+    &lt;joint type="slide" stiffness="5670" damping="3.5" armature="0.01"
+           limited="true" range="-0.0078 0.001"/&gt;
+  &lt;/default&gt;
+
+  &lt;default class="slideZ_sec"&gt;
+    &lt;joint type="slide" stiffness="5670" damping="6.5" armature="0.024"
+           limited="true" range="-0.0078 0.001"/&gt;
+  &lt;/default&gt;
+&lt;/default&gt;
+</code></pre>
+    </section>
+
+    <section id="faq">
+      <h2>11) 常见问题与快速排查</h2>
+      <table>
+        <tr><th>现象</th><th>可能原因</th><th>解决方案</th></tr>
+        <tr><td>高频抖动</td><td>damping/armature 太小</td><td>增大阻尼或 armature；必要时 timestep 降至 0.0005</td></tr>
+        <tr><td>压缩量不符</td><td>slide 刚度未标定</td><td>统一缩放所有 slide stiffness（×0.9/×1.1）</td></tr>
+        <tr><td>弯曲太硬</td><td>hinge stiffness 过大 / 腱 k 叠加</td><td>降低 hinge stiffness 或 tendon stiffness</td></tr>
+        <tr><td>弯曲不匀</td><td>equality 太密</td><td>每 2–3 节连一次 equality</td></tr>
+        <tr><td>不收缩</td><td>腱施力不足 / range 顶满</td><td>增大 ctrl（N 或 kPa）、放宽 range</td></tr>
+        <tr><td>不稳定</td><td>时间步大</td><td><code>timestep=0.001</code> 或临时 <code>0.0005</code> + 提 iterations</td></tr>
+      </table>
+      <p class="foot">一句话：<span class="ok">slide 控轴向</span>，<span class="ok">hinge 控弯曲</span>；三腱差动施力控制弯曲；所有数值由实测（1.5 kg→140 mm、135°@0.8 kg）推导；degree 模式下 hinge 以 N·m/deg 标注。</p>
+    </section>
+  </div>
+</main>
+</body>
+</html>
