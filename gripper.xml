@@ -1,0 +1,76 @@
+<mujoco model="gripper">
+    <asset>
+        <material name="metal" rgba="0.58 0.58 0.58 1"/>
+        <material name="silicone" rgba="0.1882 0.1882 0.1882 1"/>
+        <material name="gray" rgba="0.4627 0.4627 0.4627 1"/>
+        <material name="black" rgba="0.149 0.149 0.149 1"/>
+
+        <mesh class="gripper" file="./gripper/Layer_04_FIX_02.stl" />
+        <mesh class="gripper" file="./gripper/Layer_04_MOTION.stl" />
+        <mesh class="gripper" file="./gripper/Layer_04_CONNECTION.stl" />
+        <mesh class="gripper" file="./gripper/Layer_04_RUBBER.stl" />
+        <mesh class="gripper" file="./gripper/Layer_04_RUBBER_top.stl" />
+        <mesh class="gripper" file="./gripper/Layer_04_RUBBER_full.stl" />
+
+    </asset>
+    <default>
+        <default class="gripper">
+            <mesh scale="0.001 0.001 0.001"/>
+            <general biastype="affine"/>
+        </default>
+
+    </default>
+
+    <worldbody>
+        <body name="gripper_base" pos="0 0 0" euler='-90 0 0'>
+            <inertial pos="0.00 0.00 -0.047" quat="1 0 0 0" mass="0.452" diaginertia="6.975e-4 6.975e-4 5.153e-4"/>
+            <geom type="mesh" mesh="Layer_04_FIX_02" pos="0 0 0" euler="0 0 0"/>
+            <body name="gripper_motor">
+                <joint name="gripper_moter" type="slide" pos="-0 -0.937 0" axis="0 1 0" />
+                <geom type="mesh" mesh="Layer_04_MOTION" pos="0 0 0" euler="0 0 0"/>
+            </body>
+            <site name="motor_joint1_left" pos="-0.0089 -0.943 0.0158"/>
+            <site name="motor_joint1_middle" pos="0.018 -0.943 0."/>
+            <site name="motor_joint1_right" pos="-0.0089 -0.943 -0.0158"/>
+            <site name="connector_joint1_left" pos="-0.0103 -0.957 0.0183"/>
+            <site name="connector_joint1_middle" pos="0.0208 -0.957 0"/>
+            <site name="connector_joint1_right" pos="-0.0103 -0.957 -0.0183"/>
+            <site name="trajectory_point" pos="0 -1.04 0"/>
+            <body name="rubber_left">
+                <inertial pos="0.00 0.00 -0.047" quat="1 0 0 0" mass="0.002" diaginertia="6.975e-4 6.975e-4 5.153e-4"/>
+
+                <joint type="hinge" pos="-0.0179 -0.946 0.031" axis="0.633 0 0.366 " />
+                <geom type="mesh" mesh="Layer_04_RUBBER_full" pos="0 0 0" euler="0 -120 0" friction="1 0.1 0.1" solimp="0.95 0.95 0.001 0.5 2"/>
+                <body name="connector_left">
+                    <joint type="hinge" pos="-0.0089 -0.952 0.0154" axis="0.633 0 0.366 " />
+                    <geom type="mesh" mesh="Layer_04_CONNECTION" pos="0 0 0" euler="0 -120 0"/>
+                </body>
+            </body>
+            <body name="rubber_middle">
+                <inertial pos="0.00 0.00 -0.047" quat="1 0 0 0" mass="0.002" diaginertia="6.975e-4 6.975e-4 5.153e-4"/>
+
+                <joint type="hinge" pos="0.0361 -0.946 0" axis="0 0 1" />
+                <geom type="mesh" mesh="Layer_04_RUBBER_full" pos="0 0 0" euler="0 0 0" friction="1 0.1 0.1" solimp="0.95 0.95 0.001 0.5 2"/>
+                <body name="connector_middle">
+                    <joint type="hinge" pos="0.0182 -0.952 0" axis="0 0 1" />
+                    <geom type="mesh" mesh="Layer_04_CONNECTION" pos="0 0 0" euler="0 0 0"/>
+                </body>
+            </body>
+            <body name="rubber_right">
+                <inertial pos="0.00 0.00 -0.047" quat="1 0 0 0" mass="0.002" diaginertia="6.975e-4 6.975e-4 5.153e-4"/>
+
+                <joint type="hinge" pos="-0.0179 -0.946 -0.031" axis="-0.633 0 0.366 " />
+                <geom type="mesh" mesh="Layer_04_RUBBER_full" pos="0 0 0" euler="0 120 0" friction="1 0.1 0.1" solimp="0.95 0.95 0.001 0.5 2"/>
+                <body name="connector_right">
+                    <joint type="hinge" pos="-0.0089 -0.952 -0.0154" axis="-0.633 0 0.366 " />
+                    <geom type="mesh" mesh="Layer_04_CONNECTION" pos="0 0 0" euler="0 120 0"/>
+                </body>
+            </body>
+        </body>
+    </worldbody>
+    <equality>
+        <connect anchor="-0.009 -0.938 0.0138" body1="gripper_motor" body2="connector_left" solimp="0.95 0.99 0.001" solref="0.005 1"/>
+        <connect anchor="0.018 -0.938 0" body1="gripper_motor" body2="connector_middle" solimp="0.95 0.99 0.001" solref="0.005 1"/>
+        <connect anchor="-0.009 -0.938 -0.0138" body1="gripper_motor" body2="connector_right" solimp="0.95 0.99 0.001" solref="0.005 1"/>
+    </equality>
+</mujoco>

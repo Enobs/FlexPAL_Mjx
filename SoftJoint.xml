@@ -23,27 +23,17 @@
         <tendonpos name="L_axial_2" tendon="Llayer02"/>
     </sensor>
 
-    <!-- 14.7 ~= 30Kpa -->
+    <!-- 14.7 ~= 30Kpa 40 ~= -80Kpa-->
     <actuator>
-        <motor name="L_axial_0" tendon="Llayer00" gear="40"/>
-        <motor name="L_axial_1" tendon="Llayer01" gear="40"/>
-        <motor name="L_axial_2" tendon="Llayer02" gear="40"/>
-        <!-- <motor name="LL_axial_0" tendon="LLlayer00" gear="40"/>
-        <motor name="LL_axial_1" tendon="LLlayer01" gear="40"/>
-        <motor name="LL_axial_2" tendon="LLlayer02" gear="40"/>
-        <motor name="LLL_axial_0" tendon="LLLlayer00" gear="40"/>
-        <motor name="LLL_axial_1" tendon="LLLlayer01" gear="40"/>
-        <motor name="LLL_axial_2" tendon="LLLlayer02" gear="40"/> -->
-        <!-- 
-        <position name="muscle_layer00" tendon="Llayer00" ctrllimited="true" ctrlrange="-15 15" />
-        <position name="muscle_layer01" tendon="Llayer01" ctrllimited="true" ctrlrange="-15 15" />
-        <position name="muscle_layer02" tendon="Llayer02" ctrllimited="true" ctrlrange="-15 15" /> -->
-        <!-- <position name="muscle_layer10" tendon="LLlayer00" ctrllimited="true" ctrlrange="-3000 3000" />
-        <position name="muscle_layer11" tendon="LLlayer01" ctrllimited="true" ctrlrange="-3000 3000" />
-        <position name="muscle_layer12" tendon="LLlayer02" ctrllimited="true" ctrlrange="-3000 3000" />
-        <position name="muscle_layer20" tendon="LLLlayer00" ctrllimited="true" ctrlrange="-3000 3000" />
-        <position name="muscle_layer21" tendon="LLLlayer01" ctrllimited="true" ctrlrange="-3000 3000" />
-        <position name="muscle_layer22" tendon="LLLlayer02" ctrllimited="true" ctrlrange="-3000 3000" /> -->
-
+        <motor name="L_axial_0" tendon="Llayer00" gear="30"/>
+        <motor name="L_axial_1" tendon="Llayer01" gear="30"/>
+        <motor name="L_axial_2" tendon="Llayer02" gear="30"/>
+        <motor name="LL_axial_0" tendon="LLlayer00" gear="30"/>
+        <motor name="LL_axial_1" tendon="LLlayer01" gear="30"/>
+        <motor name="LL_axial_2" tendon="LLlayer02" gear="30"/>
+        <motor name="LLL_axial_0" tendon="LLLlayer00" gear="30"/>
+        <motor name="LLL_axial_1" tendon="LLLlayer01" gear="30"/>
+        <motor name="LLL_axial_2" tendon="LLLlayer02" gear="30"/>
+        <!-- <general name="gripper_movement" joint="gripper_moter" ctrllimited="true" ctrlrange="-100 200"/> -->
     </actuator>
 </mujoco>

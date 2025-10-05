@@ -336,7 +336,7 @@
         </body>
     </worldbody>
     <tendon >
-        <spatial name="layer00" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '0.5'>
+        <spatial name="layer00" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '0.8'>
             <site site="layer00"/>
             <site site="layer01"/>
             <site site="layer02"/>
@@ -375,7 +375,7 @@
             <site site="layer036"/>
             <site site="layer037"/>
         </spatial>
-        <spatial name="layer01" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '0.5'>
+        <spatial name="layer01" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '0.8'>
             <site site="layer10"/>
             <site site="layer11"/>
             <site site="layer12"/>
@@ -414,7 +414,7 @@
             <site site="layer136"/>
             <site site="layer137"/>
         </spatial>
-        <spatial name="layer02" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '0.5'>
+        <spatial name="layer02" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '0.8'>
             <site site="layer20"/>
             <site site="layer21"/>
             <site site="layer22"/>
