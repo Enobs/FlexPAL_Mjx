@@ -1,13 +1,10 @@
 <mujoco model="Pick and Place">
-    <!-- set some defaults for units and lighting -->
-    <!-- <compiler angle="degree" meshdir="STL"> -->
     <compiler angle="degree" meshdir="./assets">
         <lengthrange mode="muscle" uselimit="true"/>
     </compiler>
     <visual>
         <scale com="0.01" jointlength="0.05" jointwidth="0.03" constraint="0.01"/>
     </visual>
-    <option gravity="0 0 -9.8" impratio="1"/>
     <asset>
         <model name="layer0" file="section_module_0.xml"/>
     </asset>
@@ -22,18 +19,17 @@
         <tendonpos name="L_axial_1" tendon="Llayer01"/>
         <tendonpos name="L_axial_2" tendon="Llayer02"/>
     </sensor>
-
     <!-- 14.7 ~= 30Kpa 40 ~= -80Kpa-->
     <actuator>
-        <motor name="L_axial_0" tendon="Llayer00" gear="30"/>
-        <motor name="L_axial_1" tendon="Llayer01" gear="30"/>
-        <motor name="L_axial_2" tendon="Llayer02" gear="30"/>
-        <motor name="LL_axial_0" tendon="LLlayer00" gear="30"/>
-        <motor name="LL_axial_1" tendon="LLlayer01" gear="30"/>
-        <motor name="LL_axial_2" tendon="LLlayer02" gear="30"/>
-        <motor name="LLL_axial_0" tendon="LLLlayer00" gear="30"/>
-        <motor name="LLL_axial_1" tendon="LLLlayer01" gear="30"/>
-        <motor name="LLL_axial_2" tendon="LLLlayer02" gear="30"/>
+        <motor name="L_axial_0" tendon="Llayer00" gear="40"/>
+        <motor name="L_axial_1" tendon="Llayer01" gear="40"/>
+        <motor name="L_axial_2" tendon="Llayer02" gear="40"/>
+        <motor name="LL_axial_0" tendon="LLlayer00" gear="40"/>
+        <motor name="LL_axial_1" tendon="LLlayer01" gear="40"/>
+        <motor name="LL_axial_2" tendon="LLlayer02" gear="40"/>
+        <motor name="LLL_axial_0" tendon="LLLlayer00" gear="40"/>
+        <motor name="LLL_axial_1" tendon="LLLlayer01" gear="40"/>
+        <motor name="LLL_axial_2" tendon="LLLlayer02" gear="40"/>
         <!-- <general name="gripper_movement" joint="gripper_moter" ctrllimited="true" ctrlrange="-100 200"/> -->
     </actuator>
 </mujoco>

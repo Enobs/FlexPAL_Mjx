@@ -1,0 +1,9 @@
+Warming up JIT for the single-step function... This will be fast.
+Warm-up complete.
+
+Running simulation
+Traceback (most recent call last):
+  File "/home/yinan/Documents/FlexPAL_Mjx/flexpal/flexpal/mujoco/core.py", line 112, in <module>
+    t0 = time.perf_counter()
+         ^^^^
+NameError: name 'time' is not defined. Did you forget to import 'time'?

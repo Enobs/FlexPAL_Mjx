@@ -1,4 +1,4 @@
-<mujoco model="layer2">
+<mujoco model="layer0">
     <asset>
         <material name="metal" rgba="0.58 0.58 0.58 1"/>
         <material name="silicone" rgba="0.1882 0.1882 0.1882 1"/>
@@ -13,17 +13,17 @@
         <mesh class="str" file="Cap.stl" />
         <mesh class="str" file="Mujoco_end.stl" />
         <mesh class="str" file="Mujoco_Fix_Ring.stl" />
-        <model name="gripper" file="gripper.xml"/>
+        <model name="layer2" file="section_module_2.xml"/>
     </asset>
     <default>
         <default class="hingeB">
-            <joint stiffness="0.075" damping="0.010" armature="0.005"/>
+            <joint stiffness="0.075" damping="0.050" armature="0.01"/>
         </default>
         <default class="interZ">
-            <joint type="slide" stiffness='5670' armature="0.008" damping="3.5"/>
+            <joint type="slide" stiffness='5670' ref="-0.00120" armature="0.012" damping="7" frictionloss="0.2" solimplimit="0.9 0.95 0.001 0.5 1" solreflimit="0.002 1" />
         </default>
         <default class="secZ">
-            <joint type="slide" stiffness='5670' armature="0.024" damping="6.5"/>
+            <joint type="slide" stiffness='5670' ref="-0.00120" armature="0.035" damping="11" frictionloss="0.2" solimplimit="0.9 0.95 0.001 0.5 1" solreflimit="0.002 1" />
         </default>
         <default class="str">
             <mesh scale="0.001 0.001 0.001"/>
@@ -312,8 +312,8 @@
                                                                                     <site name="layer137" pos="-0.025981 -0.015 0 "/>
                                                                                     <site name="layer236" pos="0.025981 -0.015 0.0048 "/>
                                                                                     <site name="layer237" pos="0.025981 -0.015 0 "/>
-                                                                                    <body name="mount" pos= '0 0 -0.866' euler='0 0 0 '>
-                                                                                        <!-- <attach model="gripper" body="gripper_base" prefix='g'/> -->
+                                                                                    <body name="mount" pos= '0 0 0.008' euler='180 0 180 '>
+                                                                                        <attach model="layer2" body="layer_core" prefix="L"/>
                                                                                     </body>
                                                                                 </body>
                                                                             </body>
@@ -336,7 +336,7 @@
         </body>
     </worldbody>
     <tendon >
-        <spatial name="layer00" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '0.8'>
+        <spatial name="layer00" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
             <site site="layer00"/>
             <site site="layer01"/>
             <site site="layer02"/>
@@ -375,7 +375,7 @@
             <site site="layer036"/>
             <site site="layer037"/>
         </spatial>
-        <spatial name="layer01" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '0.8'>
+        <spatial name="layer01" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
             <site site="layer10"/>
             <site site="layer11"/>
             <site site="layer12"/>
@@ -414,7 +414,7 @@
             <site site="layer136"/>
             <site site="layer137"/>
         </spatial>
-        <spatial name="layer02" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '0.8'>
+        <spatial name="layer02" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
             <site site="layer20"/>
             <site site="layer21"/>
             <site site="layer22"/>
@@ -455,39 +455,39 @@
         </spatial>
     </tendon>
     <equality>
-        <joint joint1="inter_1_joint_x" joint2="inter_2_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_1_joint_y" joint2="inter_2_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_2_joint_x" joint2="sec_1_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_2_joint_y" joint2="sec_1_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="sec_1_joint_x" joint2="inter_3_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="sec_1_joint_y" joint2="inter_3_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_3_joint_x" joint2="inter_4_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_3_joint_y" joint2="inter_4_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_4_joint_x" joint2="sec_2_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_4_joint_y" joint2="sec_2_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="sec_2_joint_x" joint2="inter_5_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="sec_2_joint_y" joint2="inter_5_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_5_joint_x" joint2="inter_6_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_5_joint_y" joint2="inter_6_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_6_joint_x" joint2="sec_3_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_6_joint_y" joint2="sec_3_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="sec_3_joint_x" joint2="inter_7_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="sec_3_joint_y" joint2="inter_7_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_7_joint_x" joint2="inter_8_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_7_joint_y" joint2="inter_8_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_8_joint_x" joint2="sec_4_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_8_joint_y" joint2="sec_4_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="sec_4_joint_x" joint2="inter_9_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="sec_4_joint_y" joint2="inter_9_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_9_joint_x" joint2="inter_10_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_9_joint_y" joint2="inter_10_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_10_joint_x" joint2="sec_5_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_10_joint_y" joint2="sec_5_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="sec_5_joint_x" joint2="inter_11_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="sec_5_joint_y" joint2="inter_11_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_11_joint_x" joint2="inter_12_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_11_joint_y" joint2="inter_12_joint_y" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_12_joint_x" joint2="sec_6_joint_x" polycoef="0 1 0 0 0"/>
-        <joint joint1="inter_12_joint_y" joint2="sec_6_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="inter_1_joint_x" joint2="inter_2_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_1_joint_y" joint2="inter_2_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_2_joint_x" joint2="sec_1_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_2_joint_y" joint2="sec_1_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_1_joint_x" joint2="inter_3_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_1_joint_y" joint2="inter_3_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_3_joint_x" joint2="inter_4_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_3_joint_y" joint2="inter_4_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_4_joint_x" joint2="sec_2_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_4_joint_y" joint2="sec_2_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_2_joint_x" joint2="inter_5_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_2_joint_y" joint2="inter_5_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_5_joint_x" joint2="inter_6_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_5_joint_y" joint2="inter_6_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_6_joint_x" joint2="sec_3_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_6_joint_y" joint2="sec_3_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_3_joint_x" joint2="inter_7_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_3_joint_y" joint2="inter_7_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_7_joint_x" joint2="inter_8_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_7_joint_y" joint2="inter_8_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_8_joint_x" joint2="sec_4_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_8_joint_y" joint2="sec_4_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_4_joint_x" joint2="inter_9_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_4_joint_y" joint2="inter_9_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_9_joint_x" joint2="inter_10_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_9_joint_y" joint2="inter_10_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_10_joint_x" joint2="sec_5_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_10_joint_y" joint2="sec_5_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_5_joint_x" joint2="inter_11_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="sec_5_joint_y" joint2="inter_11_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_11_joint_x" joint2="inter_12_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_11_joint_y" joint2="inter_12_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_12_joint_x" joint2="sec_6_joint_x" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
+        <joint joint1="inter_12_joint_y" joint2="sec_6_joint_y" polycoef="0 1 0 0 0" solimp="0.8 0.9 0.01" solref="0.002 1"/>
     </equality>
 </mujoco>
