@@ -1,7 +1,6 @@
 import logging
 
 import numpy as np
-from MatrixCov import IterProduct,SobolSeq
 from base import MujocoEnv
 
 

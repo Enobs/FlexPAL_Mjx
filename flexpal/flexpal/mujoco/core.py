@@ -3,7 +3,7 @@
 import time
 from flax import struct
 from typing import Any, Optional
-
+import abc
 import jax
 import jax.numpy as jnp
 from jax import lax
@@ -29,6 +29,9 @@ class CoreState:
     data: Any               # mjx.Data
     t: jnp.ndarray          # int32 step counter
 
+
+class FlexPALCore(abc.ABC):
+    
 
 def core_build_params(mj_model, control_freq: float,
                       bodies=(), sites=(), tendons=(), joints=()) -> CoreParams:
@@ -57,9 +60,7 @@ def core_reset(p: CoreParams,
     return CoreState(data=d, t=jnp.array(0, dtype=jnp.int32))
 
 
-# =========================
-# One control-period step
-# =========================
+
 def core_step(p: CoreParams, s: CoreState, ctrl: jnp.ndarray) -> CoreState:
     """Apply ctrl for one control period (ctrl_dt), integrating substeps."""
     d0 = s.data.replace(ctrl=ctrl)
@@ -91,61 +92,13 @@ def mirror_to_cpu_for_view(mj_model: mujoco.MjModel,
     mujoco.mj_forward(mj_model, mj_data)
 
 
-# if __name__ == '__main__':
-    
-#     xml_path = "/home/yinan/Documents/FlexPAL_Mjx/flexpal/flexpal/model/pickandplace.xml"
-#     mj_model = mujoco.MjModel.from_xml_path(xml_path)
-#     mj_data  = mujoco.MjData(mj_model)  
-#     p  = core_build_params(mj_model, control_freq=20, sites=("LLLend_effector",), bodies=("Lsec_2",))
-#     s = core_reset(p)
-#     sid = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_SITE, "LLLend_effector")
-    
-
-#     ctrl = jnp.zeros((mj_model.nu,), dtype=jnp.float32)   
-#     print("Warming up JIT for the single-step function... This will be fast.")
-#     s_after_warmup = core_step_jit(p, s, ctrl) 
-#     s_after_warmup.data.qpos.block_until_ready()
-#     print("Warm-up complete.")
-
-#     T = 300
-#     print(f"\nRunning simulation")
-#     t0 = time.perf_counter()
-    
-#     s_current = s_after_warmup
-#     for _ in range(T): 
-#         s_current = core_step_jit(p, s_current, ctrl)
-    
-#     s_final = s_current
-#     s_final.data.qpos.block_until_ready()
-    
-#     t1 = time.perf_counter()
-#     print(f"Running {T} steps in a loop took {t1 - t0:.4f}s")
-
 
 if __name__ == '__main__':
     # 1. 加载模型
     xml_path = "/home/yinan/Documents/FlexPAL_Mjx/flexpal/flexpal/model/pickandplace.xml"
     mj_model = mujoco.MjModel.from_xml_path(xml_path)
 
-    # =====================================================================
-    # ==                 这 是 我 们 唯 一 需 要 的 信 息                ==
-    # =====================================================================
-    print("--- Verifying Model Physics Options ---")
-    integrator_code = mj_model.opt.integrator
-    integrator_name = mujoco.mjtIntegrator(integrator_code).name
-    print(f"Loaded Integrator: {integrator_name} (Code: {integrator_code})")
-    print(f"Loaded Timestep: {mj_model.opt.timestep}")
-    print(f"Loaded Solver Iterations: {mj_model.opt.iterations}")
-    
-    if integrator_name != 'mjINT_IMPLICITFAST':
-        print("\n[!!! FATAL WARNING !!!] The stable 'implicitfast' integrator was NOT loaded!")
-        print("This is the reason for the extreme slowness. Please check your XML file again.\n")
-    else:
-        print("\n[SUCCESS] The stable 'implicitfast' integrator is correctly loaded. Performance should be high.\n")
-    # =====================================================================
-
-    # 2. 构建 MJX 参数
-    p = core_build_params(mj_model, control_freq=20, sites=("LLLend_effector",), bodies=("Lsec_2",))
+    p = core_build_params(mj_model, control_freq=25, sites=("LLLend_effector",), bodies=("Lsec_2",))
     s = core_reset(p)
     ctrl = jnp.zeros((mj_model.nu,), dtype=jnp.float32)
 
@@ -156,7 +109,7 @@ if __name__ == '__main__':
     print("Warm-up complete.")
 
     # 4. 运行一个用于计时的循环
-    T = 300
+    T = 3000
     print(f"\n--- Running Timed Simulation for {T} Steps ---")
     
     t0 = time.perf_counter()

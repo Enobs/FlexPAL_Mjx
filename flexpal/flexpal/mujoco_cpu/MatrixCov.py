@@ -6,7 +6,6 @@ import torch
 import math
 import os
 import itertools
-import sobol_seq
 import numpy as np
 
 def rotationMatrixToEulerAngles(R):
@@ -67,20 +66,3 @@ def IterProduct(repeat, total_chamber):
     action_sum = np.vstack((action_sum,action_max,action_min))
     return action_sum
 
-def SobolSeq(dimensions,samples):
-    lower_bound = -280
-    upper_bound = 200
-    scale = upper_bound - lower_bound
-
-    # Generate Sobol sequence points
-    sobol_points = sobol_seq.i4_sobol_generate(dimensions, samples)
-
-    # Scale the Sobol sequence to the range [-280, 200]
-    scaled_sobol_points = sobol_points * scale + lower_bound
-
-    # Round the scaled Sobol points to the nearest integer and convert to int type
-    integer_sobol_points = np.rint(scaled_sobol_points).astype(int)
-    return integer_sobol_points
-    # Print the integer Sobol points
-    print("Integer Sobol Points:")
-    print(integer_sobol_points)
