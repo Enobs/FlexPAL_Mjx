@@ -4,7 +4,7 @@ from flax import struct
 import jax, jax.numpy as jnp
 
 @struct.dataclass
-class PIDParams:
+class SensorPIDParams:
     kp: float
     ki: float
     kd: float

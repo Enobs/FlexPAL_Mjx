@@ -10,6 +10,7 @@ import jax.numpy as jnp
 from jax import lax
 from mujoco import mjx
 import idbuild
+import sensors
 
 
 
@@ -22,7 +23,7 @@ class CoreParams:
     model_dt: float = struct.field(pytree_node=False)
     ctrl_dt:  float = struct.field(pytree_node=False)
     substeps: int   = struct.field(pytree_node=False)
-    cids: idbuild.CheckId   = struct.field(pytree_node=False, default_factory=idbuild.CheckId)  # 静态
+    cids: idbuild.CheckId   = struct.field(pytree_node=False, default_factory=idbuild.CheckId)  
     ids:  idbuild.Ids      = struct.field(default_factory=idbuild.Ids)   
 
 
@@ -62,7 +63,7 @@ def core_build_params(mj_model, control_freq: float,
         ids=ids,
     )
     
-def core_build_pidparam()->PIDPiecewise:
+def core_build_pid_param()->PIDPiecewise:
     return PIDPiecewise()
 
 def core_reset(p: CoreParams,
@@ -155,18 +156,18 @@ if __name__ == '__main__':
     site_index=idbuild.gen_site_names()
     p = core_build_params(mj_model, control_freq=25, sites=site_index, actuators=actuator_index)
     s_init = core_reset(p)
-    pidparam = core_build_pidparam()
+    pid_param = core_build_pid_param()
     ctrl_init= jnp.zeros((9,), dtype=jnp.float32)
-    s_next, _reach = inner_step(p, s_init, ctrl_init, pidparam)
+    s_next, _reach = inner_step(p, s_init, ctrl_init, pid_param)
     warmed_up_s  = core_step(p,s_next, ctrl_init)
     ctrl = jnp.array([0.2,0.2,-1,-1,-0.2,-1,-1,-0.2,0.2], dtype=jnp.float32)
-    T = 300
+    T = 400
     print(f"\n--- Running Timed Simulation for {T} Steps ---")
     
     t0 = time.perf_counter()
     s_current = warmed_up_s
     for _ in range(T - 1):
-        s_next, _reach = inner_step(p, s_current, ctrl, pidparam)
+        s_next, _reach = inner_step(p, s_current, ctrl, pid_param)
         s_current  = core_step(p,s_next, ctrl)
     s_current.data.qpos.block_until_ready()
     t1 = time.perf_counter()
@@ -178,4 +179,4 @@ if __name__ == '__main__':
     print(f"Total time taken: {duration:.4f} seconds")
     print(f"Average time per control step: {duration / T * 1000:.4f} ms")
     print(f"Physics Steps per Second: {physics_sps:.1f}  <-- [THE KEY METRIC]")
-    
+    print(sensors.site_pos(s_current, p.ids.site[-1]))

@@ -187,3 +187,4 @@ if __name__ == "__main__":
 
         if env.is_render:
             env.render()
+    print(env.get_site_pos("LLLend_effector"))
