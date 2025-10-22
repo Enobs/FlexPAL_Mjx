@@ -1,4 +1,7 @@
 <mujoco model="layer1">
+    <compiler angle="degree" meshdir="./assets">
+        <lengthrange mode="muscle" uselimit="true"/>
+    </compiler>
     <asset>
         <material name="metal" rgba="0.58 0.58 0.58 1"/>
         <material name="silicone" rgba="0.1882 0.1882 0.1882 1"/>
@@ -56,9 +59,9 @@
                 <joint name="sec_1_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
                 <joint name="sec_1_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
                 <joint name="sec_1_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
-                <site name="layer07" pos="0 -0.03 0.005 "/>
-                <site name="layer17" pos="0.025981 0.015 0.005 "/>
-                <site name="layer27" pos="-0.025981 0.015 0.005 "/>
+                <site name="layer02" pos="0 -0.03 0.005 "/>
+                <site name="layer12" pos="0.025981 0.015 0.005 "/>
+                <site name="layer22" pos="-0.025981 0.015 0.005 "/>
                 <body name='sec_2' pos= '0 0 0.0484' euler='0 0 0'>
                     <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
                     <geom class="vis" type="mesh" mesh="Mujoco_Fix_Ring" pos="0 0 0" material = 'matte_black_plastic'/>
@@ -69,9 +72,9 @@
                     <joint name="sec_2_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
                     <joint name="sec_2_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
                     <joint name="sec_2_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
-                    <site name="layer013" pos="0 -0.03 0.005 "/>
-                    <site name="layer113" pos="0.025981 0.015 0.005 "/>
-                    <site name="layer213" pos="-0.025981 0.015 0.005 "/>
+                    <site name="layer03" pos="0 -0.03 0.005 "/>
+                    <site name="layer13" pos="0.025981 0.015 0.005 "/>
+                    <site name="layer23" pos="-0.025981 0.015 0.005 "/>
                     <body name='sec_3' pos= '0 0 0.0484' euler='0 0 0'>
                         <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
                         <geom class="vis" type="mesh" mesh="Mujoco_Fix_Ring" pos="0 0 0" material = 'matte_black_plastic'/>
@@ -82,9 +85,9 @@
                         <joint name="sec_3_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
                         <joint name="sec_3_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
                         <joint name="sec_3_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
-                        <site name="layer019" pos="0 -0.03 0.005 "/>
-                        <site name="layer119" pos="0.025981 0.015 0.005 "/>
-                        <site name="layer219" pos="-0.025981 0.015 0.005 "/>
+                        <site name="layer04" pos="0 -0.03 0.005 "/>
+                        <site name="layer14" pos="0.025981 0.015 0.005 "/>
+                        <site name="layer24" pos="-0.025981 0.015 0.005 "/>
 
                         <body name='sec_4' pos= '0 0 0.0484' euler='0 0 0'>
                             <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
@@ -96,9 +99,9 @@
                             <joint name="sec_4_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
                             <joint name="sec_4_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
                             <joint name="sec_4_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
-                            <site name="layer025" pos="0 -0.03 0.005 "/>
-                            <site name="layer125" pos="0.025981 0.015 0.005 "/>
-                            <site name="layer225" pos="-0.025981 0.015 0.005 "/>
+                            <site name="layer05" pos="0 -0.03 0.005 "/>
+                            <site name="layer15" pos="0.025981 0.015 0.005 "/>
+                            <site name="layer25" pos="-0.025981 0.015 0.005 "/>
 
                             <body name='sec_5' pos= '0 0 0.0484' euler='0 0 0'>
                                 <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
@@ -110,9 +113,9 @@
                                 <joint name="sec_5_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242" limited="true" range="-50 50"/>
                                 <joint name="sec_5_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242" limited="true" range="-50 50"/>
                                 <joint name="sec_5_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242" limited="true" range="-0.023 0.001" />
-                                <site name="layer031" pos="0 -0.03 0.005 "/>
-                                <site name="layer131" pos="0.025981 0.015 0.005 "/>
-                                <site name="layer231" pos="-0.025981 0.015 0.005 "/>
+                                <site name="layer06" pos="0 -0.03 0.005 "/>
+                                <site name="layer16" pos="0.025981 0.015 0.005 "/>
+                                <site name="layer26" pos="-0.025981 0.015 0.005 "/>
 
                                 <body name='sec_6' pos= '0 0 0.0484' euler='0 0 0'>
                                     <inertial pos="0.00 0.00 0.0045" quat="1 0 0 0" mass="0.036" diaginertia="2.092e-6 2.092e-6 4.135e-6"/>
@@ -123,9 +126,9 @@
                                     <joint name="sec_6_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
                                     <joint name="sec_6_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
                                     <joint name="sec_6_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.010 0.001" />
-                                    <site name="layer037" pos="0 -0.03 0 "/>
-                                    <site name="layer137" pos="0.025981 0.015 0 "/>
-                                    <site name="layer237" pos="-0.025981 0.015 0 "/>
+                                    <site name="layer07" pos="0 -0.03 0 "/>
+                                    <site name="layer17" pos="0.025981 0.015 0 "/>
+                                    <site name="layer27" pos="-0.025981 0.015 0 "/>
                                     <body name="mount" pos= '0 0 0.008' euler='180 0 0 '>
                                         <attach model="layer2" body="layer_core" prefix="L"/>
                                     </body>
@@ -140,30 +143,30 @@
     <tendon >
         <spatial name="layer00" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
             <site site="layer01"/>
+            <site site="layer02"/>
+            <site site="layer03"/>
+            <site site="layer04"/>
+            <site site="layer05"/>
+            <site site="layer06"/>
             <site site="layer07"/>
-            <site site="layer013"/>
-            <site site="layer019"/>
-            <site site="layer025"/>
-            <site site="layer031"/>
-            <site site="layer037"/>
         </spatial>
         <spatial name="layer01" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
             <site site="layer11"/>
+            <site site="layer12"/>
+            <site site="layer13"/>
+            <site site="layer14"/>
+            <site site="layer15"/>
+            <site site="layer16"/>
             <site site="layer17"/>
-            <site site="layer113"/>
-            <site site="layer119"/>
-            <site site="layer125"/>
-            <site site="layer131"/>
-            <site site="layer137"/>
         </spatial>
         <spatial name="layer02" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
             <site site="layer21"/>
+            <site site="layer22"/>
+            <site site="layer23"/>
+            <site site="layer24"/>
+            <site site="layer25"/>
+            <site site="layer26"/>
             <site site="layer27"/>
-            <site site="layer213"/>
-            <site site="layer219"/>
-            <site site="layer225"/>
-            <site site="layer231"/>
-            <site site="layer237"/>
         </spatial>
     </tendon>
     <equality>

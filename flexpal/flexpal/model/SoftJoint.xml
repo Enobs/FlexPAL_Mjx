@@ -1,7 +1,5 @@
 <mujoco model="Pick and Place">
-    <compiler angle="degree" meshdir="./assets">
-        <lengthrange mode="muscle" uselimit="true"/>
-    </compiler>
+
     <visual>
         <scale com="0.01" jointlength="0.05" jointwidth="0.03" constraint="0.01"/>
     </visual>
