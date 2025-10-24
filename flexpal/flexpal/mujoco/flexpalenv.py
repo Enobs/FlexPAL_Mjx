@@ -1,130 +1,147 @@
-# env_flexpal.py
-from typing import Any, Dict
-from flax import struct
-import jax, jax.numpy as jnp
-from brax import base
-from brax.envs.env import PipelineEnv, State as BraxState
-from core import CoreParams, CoreState, build_core_params, core_reset, core_step, read_site_pos, read_actuator_ctrl
-from control import (PIDParams, PIDState, SensorOuterParams, InnerActParams,
-                     ControlParams, ControlState, control_pipeline_sensor_outer)
+# flex_env.py
+import jax
+import jax.numpy as jnp
+import mujoco
+from brax.envs.base import PipelineEnv, State
+from brax.io import mjcf as brax_mjcf
+import idbuild
+import core
+from typing import Tuple, Any
+from control import SensorPIDParams  
+import sensors, control
 
-@struct.dataclass
-class FlexParams:
-    core: CoreParams
-    ctrl: ControlParams
+@jax.jit
+def step_controller_brax(p: core.CoreParams,
+                         s: core.CoreState,
+                         ss_g: jax.Array,
+                         pid_param: SensorPIDParams,
+                         ctrl_param: core.PIDPiecewise,
+                         pipeline_step_fn: Any 
+                        ) -> Tuple[core.CoreState, jax.Array, SensorPIDParams]:
+    tendon_full = sensors.tendon_state(s, p.ids.tendon)
+    reach_mask  = jnp.abs(tendon_full - ss_g) < pid_param.tol
 
-@struct.dataclass
-class FlexState:
-    pipeline_state: base.State   # 直接复用 brax pipeline 的 state
-    core: CoreState
-    ctrl: ControlState
-    obs: jax.Array
-    reward: jax.Array
-    done: jax.Array
-    metrics: Dict[str, jax.Array] = struct.field(default_factory=dict)
-    info: Dict[str, Any] = struct.field(default_factory=dict)
+    delta_u, new_integral = control.v_pid_sensor(ss_g, tendon_full, pid_param, p.ctrl_dt)
+    u_raw  = s.data.ctrl + delta_u
+    u_ctrl = jnp.clip(u_raw, -1.0, 1.0)
+    
+    s_next, _ = core.inner_step(p, s, u_ctrl, ctrl_param)
+    dT = pipeline_step_fn(s.data, s_next.data.ctrl)
+    s_current = s.replace(data=dT, t=s.t + 1)
+    
+    
+    pose_reach = jnp.all(reach_mask).astype(jnp.int32)
+    new_pid = pid_param.replace(integral=new_integral)
+    return s_current, pose_reach, new_pid
+
+
+@jax.jit
+def loop_until_reach_brax(p, s, ss_g, pid_param, ctrl_param, pipeline_step_fn, max_steps=1000):
+    def cond_fun(loop_state):
+        _s, reach, k, _pid = loop_state
+        return (reach == 0) & (k < max_steps)
+
+    def body_fun(loop_state):
+        s, _reach, k, pidp = loop_state
+        s_next, reach, pidp_next = step_controller_brax(
+            p, s, ss_g, pidp, ctrl_param, pipeline_step_fn
+        )
+        return (s_next, reach, k + 1, pidp_next)
+
+    init = (s, jnp.array(0, jnp.int32), jnp.array(0, jnp.int32), pid_param)
+    s_f, reach_f, steps, pidp_f = jax.lax.while_loop(cond_fun, body_fun, init)
+    return s_f, steps, pidp_f
 
 class FlexPALEnv(PipelineEnv):
-    """
-    物理后端仍由 PipelineEnv 负责（backend='mjx'），
-    我们在 step() 内调用“传感空间外环 + 执行器内环”的控制管线，得到 ctrl_full，再推进物理。
-    """
-    def __init__(self, sys: base.System,
-                 mj_model,                         # 需要原始 mujoco.MjModel 做 MJX core
-                 actuator_names, site_names,
-                 outer_pid=PIDParams(2.0, 0.0, 0.0),
-                 inner_pid=PIDParams(8.0, 0.5, 0.1),
-                 control_freq=25,
-                 n_frames=1, backend='mjx', debug=False):
-        super().__init__(sys=sys, backend=backend, n_frames=n_frames, debug=debug)
-        core_p = build_core_params(mj_model, control_freq, actuator_names, site_names)
-        ctrl_p = ControlParams(
-            outer=SensorOuterParams(pid=outer_pid, tol=1e-3),
-            inner=InnerActParams(pid=inner_pid)
+
+    def __init__(self,
+                 xml_path: str,
+                 control_freq: float = 25,
+                 kp: float = 2.0,
+                 ki: float = 0.3,
+                 tol: float = 1e-3,
+                 max_inner_steps: int = 400,
+                 ):
+
+        mj_model = mujoco.MjModel.from_xml_path(xml_path)
+        # mj_model.opt.solver = mujoco.mjtSolver.mjSOL_CG
+        # mj_model.opt.iterations = 6
+        # mj_model.opt.ls_iterations = 6
+
+        try:
+            sys = brax_mjcf.load_model(mj_model)
+        except Exception:
+            sys = brax_mjcf.load(xml_path)
+        self.actuator_index =idbuild.gen_actuator_names()
+        self.site_index=idbuild.gen_site_names()
+        self.tendon_index = idbuild.gen_tendon_names()
+        self.p = core.core_build_params(
+          mj_model, control_freq=control_freq, 
+          sites=self.site_index, 
+          tendons=self.tendon_index,
+          actuators=self.actuator_index)
+        self.ctrl_param = core.core_build_pid_param()
+        model_dt = float(mj_model.opt.timestep)
+        n_frames = int(round((1.0 / control_freq) / model_dt))
+        
+        super().__init__(sys, backend="mjx", n_frames=n_frames)
+        self.continuous_mode = False  # 或 True
+
+        self.kp = float(kp)
+        self.ki = float(ki)
+        self.tol = float(tol)
+        self.max_inner = int(max_inner_steps)
+        self.nt = len(self.p.ids.tendon)
+
+    def reset(self, rng):
+        data = self.pipeline_init(self.sys.qpos0, jnp.zeros(self.sys.nv))
+        pid_integral = jnp.zeros((len(self.p.ids.tendon),), dtype=jnp.float32)
+        obs = self._get_obs(data, jnp.zeros(self.sys.nu))
+        zero = jnp.array(0., jnp.float32)
+        metrics = dict(
+            pid_integral=pid_integral,
+            inner_steps=jnp.array(0, jnp.int32)
         )
-        self._p = FlexParams(core=core_p, ctrl=ctrl_p)
+        return State(data, obs, zero, zero, metrics)
 
-    @property
-    def params(self) -> FlexParams:
-        return self._p
 
-    # ========== Reset ==========
-    def reset(self, rng: jax.Array) -> BraxState:
-        # Brax pipeline state（用于渲染/通用 API）
-        q = jnp.zeros((self.sys.q_size(),))
-        qd = jnp.zeros((self.sys.qd_size(),))
-        ps = self.pipeline_init(q, qd)
+    def step(self, state, tendon_target):
+        pid_integral = state.metrics['pid_integral']
+        pid = SensorPIDParams(kp=self.kp, ki=self.ki, tol=self.tol,
+                              integral=pid_integral)
 
-        # 我们自己的 MJX core state
-        core_s = core_reset(self._p.core)
-
-        # 控制状态初始化
-        N = self._p.core.actuator_index.shape[0]
-        ctrl_s = ControlState(
-            pid_outer=PIDState(jnp.zeros((N,)), jnp.zeros((N,))),
-            pid_inner=PIDState(jnp.zeros((N,)), jnp.zeros((N,))),
-        )
-
-        obs = self._compute_obs(core_s)
-        return BraxState(
-            pipeline_state=ps,
-            obs=obs,
-            reward=jnp.array(0.0),
-            done=jnp.array(0),
-            metrics={},
-            info=dict(core=core_s, ctrl=ctrl_s)  # 把自定义状态存进 info，保持 Brax State 兼容
-        )
-
-    # ========== Step ==========
-    def step(self, state: BraxState, high_level_target: jax.Array) -> BraxState:
-        core_s: CoreState = state.info['core']
-        ctrl_s: ControlState = state.info['ctrl']
-
-        # 读取传感空间当前值（比如 site 位置）
-        sensor_cur = read_site_pos(core_s, self._p.core)           # [K,3]
-        sensor_tgt = high_level_target.reshape(sensor_cur.shape)   # enforce shape
-
-        # 执行器当前
-        ctrl_full = read_actuator_ctrl(core_s)                     # [A]
-
-        # 控制管线（外环→内环）
-        ctrl_full_new, ctrl_s_new, reached, dbg = control_pipeline_sensor_outer(
-            self._p.ctrl, ctrl_s, sensor_tgt, sensor_cur,
-            ctrl_full, self._p.core.actuator_index, self.dt
+        s0 = core.CoreState(data=state.pipeline_state, t=jnp.array(0, jnp.int32))
+        s_f, inner_steps, pid_f = loop_until_reach_brax(
+            self.p, s0, tendon_target, pid, self.ctrl_param,
+            pipeline_step_fn=self.pipeline_step,
+            max_steps=self.max_inner,
         )
 
-        # 推进 MJX core（我们自己的）
-        core_s_new = core_step(self._p.core, core_s, ctrl_full_new)
+        data = s_f.data
+        obs = self._get_obs(data, data.ctrl)
+        
+        state.metrics.update(pid_integral=pid_f.integral, inner_steps=inner_steps)
+        
+        done = jnp.array(1., jnp.float32) if not self.continuous_mode else jnp.array(0., jnp.float32)
+        reward = jnp.array(0., jnp.float32)
 
-        # 同时推进 Brax 的 pipeline（用于通用渲染/接口；传同样 ctrl）
-        ps_new = self.pipeline_step(state.pipeline_state, ctrl_full_new)
+        return state.replace(pipeline_state=data, obs=obs, reward=reward, done=done)
 
-        # 观测/奖励/终止（示例：到位给正奖）
-        obs = self._compute_obs(core_s_new)
-        reward = jnp.where(reached > 0, 1.0, -jnp.minimum(1.0, dbg['outer_err']))
-        done = jnp.array(0)
+    def _get_obs(self, data, action: jnp.ndarray) -> jnp.ndarray:
+        pos = data.qpos
+        return jnp.concatenate([
+            pos,
+            data.qvel,
+            data.cinert[1:].ravel(),
+            data.cvel[1:].ravel(),
+            data.qfrc_actuator,
+        ])
 
-        info = dict(state.info)
-        info.update(core=core_s_new, ctrl=ctrl_s_new, reached=reached, **dbg)
 
-        return BraxState(
-            pipeline_state=ps_new,
-            obs=obs,
-            reward=reward,
-            done=done,
-            metrics={"outer_err": dbg['outer_err']},
-            info=info
-        )
 
-    # ========== 观测构造 ==========
-    def _compute_obs(self, core_s: CoreState) -> jax.Array:
-        # 例：拼接 {site位置, qpos 的一部分, ctrl 的一部分}
-        site = read_site_pos(core_s, self._p.core).reshape(-1)     # [K*3]
-        # 也可以加上 qpos/qvel：core_s.data.qpos / qvel
-        return site
 
-    @property
-    def observation_size(self):
-        # 用 reset 推断（Brax 的惯例）
-        obs = self.unwrapped.reset(jax.random.PRNGKey(0)).obs
-        return obs.shape[-1]
+
+
+
+if __name__== "__main__":
+  
