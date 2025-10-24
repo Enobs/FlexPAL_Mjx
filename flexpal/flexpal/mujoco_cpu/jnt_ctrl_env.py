@@ -179,7 +179,8 @@ if __name__ == "__main__":
     action = np.array([0.2,0.2,-1,-1,-0.2,-1,-1,-0.2,0.2])
     stop_flag = True
     # env.gripper_ctrl("gripper_movement", 1)
-    while stop_flag:
+    # while stop_flag:
+    for i in range(400):
         check = env.get_current_state()
         if (env.pose_reach == 1):
             env.pose_reach = 0

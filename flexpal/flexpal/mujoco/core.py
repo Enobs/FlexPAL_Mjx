@@ -34,10 +34,10 @@ class CoreState:
 
 @struct.dataclass
 class PIDPiecewise:
-    k1: float = struct.field(pytree_node=False, default=5e-4)
-    k2: float = struct.field(pytree_node=False, default=1e-3)
-    k3: float = struct.field(pytree_node=False, default=2e-3)
-    k4: float = struct.field(pytree_node=False, default=3e-3)
+    k1: float = struct.field(pytree_node=False, default=5e-2)
+    k2: float = struct.field(pytree_node=False, default=1e-1)
+    k3: float = struct.field(pytree_node=False, default=2e-1)
+    k4: float = struct.field(pytree_node=False, default=3e-1)
     tol: float = struct.field(pytree_node=False, default=1e-2)
     min: float = struct.field(pytree_node=False, default=-3.5e2)
     max: float = struct.field(pytree_node=False, default=2e2)
@@ -103,7 +103,7 @@ def pid_step_single(target_j: jax.Array, current_j:jax.Array, param: PIDPiecewis
     out = jnp.select(conds, choices, default=param.k4 * err + current_j)
     return out
 
-v_pid = jax.vmap(pid_step_single, in_axes=(0, 0, None))
+v_pid_core = jax.vmap(pid_step_single, in_axes=(0, 0, None))
 
 
 @jax.jit
@@ -118,11 +118,9 @@ def inner_step(p: CoreParams,
     ctrl_sel = ctrl_full[aidx]                  # [N]
     reach_mask = jnp.abs(action - ctrl_sel) < pid_params.tol   
 
-    u = v_pid(action, ctrl_sel, pid_params)       
+    u = v_pid_core(action, ctrl_sel, pid_params)       
     u = jnp.clip(u, pid_params.min, pid_params.max)                 
-
     new_sel = jnp.where(reach_mask, ctrl_sel, u)    
-
     ctrl_full_new = ctrl_full.at[aidx].set(new_sel) 
     s_new = s.replace(data=s.data.replace(ctrl=ctrl_full_new))
 
@@ -154,21 +152,22 @@ if __name__ == '__main__':
     mj_model = mujoco.MjModel.from_xml_path(xml_path)
     actuator_index =idbuild.gen_actuator_names()
     site_index=idbuild.gen_site_names()
-    p = core_build_params(mj_model, control_freq=25, sites=site_index, actuators=actuator_index)
+    tendon_index = idbuild.gen_tendon_names()
+    p = core_build_params(mj_model, control_freq=25, sites=site_index, tendons=tendon_index,actuators=actuator_index)
     s_init = core_reset(p)
     pid_param = core_build_pid_param()
     ctrl_init= jnp.zeros((9,), dtype=jnp.float32)
     s_next, _reach = inner_step(p, s_init, ctrl_init, pid_param)
     warmed_up_s  = core_step(p,s_next, ctrl_init)
     ctrl = jnp.array([0.2,0.2,-1,-1,-0.2,-1,-1,-0.2,0.2], dtype=jnp.float32)
-    T = 400
+    T = 300
     print(f"\n--- Running Timed Simulation for {T} Steps ---")
     
     t0 = time.perf_counter()
     s_current = warmed_up_s
     for _ in range(T - 1):
         s_next, _reach = inner_step(p, s_current, ctrl, pid_param)
-        s_current  = core_step(p,s_next, ctrl)
+        s_current  = core_step(p,s_next, s_next.data.ctrl)
     s_current.data.qpos.block_until_ready()
     t1 = time.perf_counter()
 
@@ -180,3 +179,4 @@ if __name__ == '__main__':
     print(f"Average time per control step: {duration / T * 1000:.4f} ms")
     print(f"Physics Steps per Second: {physics_sps:.1f}  <-- [THE KEY METRIC]")
     print(sensors.site_pos(s_current, p.ids.site[-1]))
+    print(f"current sensor position: {sensors.tendon_state(s_current, p.ids.tendon)}")

@@ -120,9 +120,9 @@ class MujocoEnv:
         self.pid_last = object-current
         if np.abs(object-current) > 0.5:
             return 0.0005*(object-current)+current
-        elif np.abs(object-current) < 0.5 and np.abs(object-current) > 0.2:
+        elif np.abs(object-current) <= 0.5 and np.abs(object-current) > 0.2:
             return 0.001*(object-current)+current
-        elif np.abs(object-current) < 0.2 and np.abs(object-current) > 0.1:
+        elif np.abs(object-current) <= 0.2 and np.abs(object-current) > 0.1:
             return 0.002*(object-current)+current
         else:
             return 0.003*(object-current)+current

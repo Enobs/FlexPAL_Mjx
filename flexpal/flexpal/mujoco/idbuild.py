@@ -57,7 +57,6 @@ def gen_actuator_names() -> list[str]:
     return [f"{sec}_axial_{i}" for sec in secs for i in range(3)]
 
 def gen_site_names() -> list[str]:
-    # L/LL/LLL 的 layer{row}{col}，row∈{0,1,2}，col∈{1..7}
     names = []
     for sec in ["L", "LL", "LLL"]:
         for row in (0, 1, 2):
@@ -65,4 +64,12 @@ def gen_site_names() -> list[str]:
                 names.append(f"{sec}layer{row}{col}")
         if sec == "LLL":
             names.append("LLLend_effector")  # 末端
+    return names
+
+
+def gen_tendon_names() -> list[str]:
+    names = []
+    for sec in ["L", "LL", "LLL"]:
+        for row in (0, 1, 2):
+                names.append(f"{sec}layer0{row}")
     return names
