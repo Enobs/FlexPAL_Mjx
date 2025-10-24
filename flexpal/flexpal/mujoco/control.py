@@ -9,7 +9,7 @@ class SensorPIDParams:
     kp: float = struct.field(pytree_node=False,default = 2.0)
     ki: float = struct.field(pytree_node=False,default = 0.3)
     kd: float = struct.field(pytree_node=False,default = 0.0)
-    tol: float = struct.field(pytree_node=False,default = 0.002)
+    tol: float = struct.field(pytree_node=False,default = 0.003)
     integral: jax.Array = struct.field(
         default_factory=lambda: jnp.zeros((9,), dtype=jnp.float32))
 
@@ -89,17 +89,17 @@ if __name__ == '__main__':
     ss_g_init = jnp.array([0.29, 0.29, 0.29, 0.29, 0.29,0.29, 0.29 , 0.29 , 0.29], dtype=jnp.float32)
     _, _ = core.inner_step(p, s_init, ctrl_init, pid_param)
     _  = core.core_step(p,s_init, ctrl_init)
-    _, _ , _ = step_controller(p,s_init,ss_g_init,sensor_pid_param,pid_param)
-    # _, _ = loop_until_reach(p,s_init,ss_g_init,sensor_pid_param,pid_param)
+    # _, _ , _ = step_controller(p,s_init,ss_g_init,sensor_pid_param,pid_param)
+    _, _, _ = loop_until_reach(p,s_init,ss_g_init,sensor_pid_param,pid_param)
     sensor_target = jnp.array([0.30562606, 0.28558427, 0.28487587, 0.20157896, 0.28575578, 0.21900828, 0.14331605, 0.30143574, 0.33560848], dtype=jnp.float32)
     T = 400
     print(f"\n--- Running Timed Simulation for {T} Steps ---")
     
     t0 = time.perf_counter()
     s_current = s_init
-    for _ in range(T):
-        s_current, reach, sensor_pid_param = step_controller(p, s_current, sensor_target, sensor_pid_param, pid_param)
-        # s_end, step  = loop_until_reach(p,s_current,sensor_target,sensor_pid_param,pid_param)
+    # for _ in range(T):
+        # s_current, reach, sensor_pid_param = step_controller(p, s_current, sensor_target, sensor_pid_param, pid_param)
+    s_current, reach, sensor_pid_param  = loop_until_reach(p,s_current,sensor_target,sensor_pid_param,pid_param)
     s_current.data.qpos.block_until_ready()
     t1 = time.perf_counter()
 
