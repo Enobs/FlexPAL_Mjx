@@ -46,6 +46,9 @@
             <geom class="col" name="Mujoco_end_col_1" type="cylinder" size="0.0225 0.0451" pos="0 0.03 -0.0451"/>
             <geom class="col" name="Mujoco_end_col_2" type="cylinder" size="0.0225 0.0451" pos="0.025981 -0.015 -0.0451"/>
             <geom class="col" name="Mujoco_end_col_3" type="cylinder" size="0.0225 0.0451" pos="-0.025981 -0.015 -0.0451"/>
+            <site name= "imu_site_01" pos="0 0.03 -0.0402 "/>
+            <site name= "imu_site_02" pos="0.025981 -0.015 -0.0402 "/>
+            <site name= "imu_site_03" pos="-0.025981 -0.015 -0.0402 "/>
             <site name="layer01" pos="0 0.03 -0.0902 "/>
             <site name="layer11" pos="0.025981 -0.015 -0.0902 "/>
             <site name="layer21" pos="-0.025981 -0.015 -0.0902 "/>
@@ -181,4 +184,12 @@
         <joint joint1="sec_5_joint_x" joint2="sec_6_joint_x" polycoef="0 1 0 0 0"/>
         <joint joint1="sec_5_joint_y" joint2="sec_6_joint_y" polycoef="0 1 0 0 0"/>
     </equality>
+    <sensor>
+        <gyro site="imu_site_01"/>
+        <accelerometer site="imu_site_01"/>
+        <gyro site="imu_site_02"/>
+        <accelerometer site="imu_site_02"/>
+        <gyro site="imu_site_03"/>
+        <accelerometer site="imu_site_03"/>
+    </sensor>
 </mujoco>

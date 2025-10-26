@@ -112,4 +112,5 @@ if __name__ == '__main__':
     print(f"Physics Steps per Second: {physics_sps:.1f}  <-- [THE KEY METRIC]")
     print(f"current sensor position: {sensors.tendon_state(s_current, p.ids.tendon)}")
     print(f"current actuator position: {s_current.data.ctrl}")
+    print(f"current sensor data: {s_current.data.sensordata}")
     print(f"current step: {reach}")
