@@ -1,0 +1,7 @@
+README.md
+setup.py
+flexpal/__init__.py
+flexpal.egg-info/PKG-INFO
+flexpal.egg-info/SOURCES.txt
+flexpal.egg-info/dependency_links.txt
+flexpal.egg-info/top_level.txt

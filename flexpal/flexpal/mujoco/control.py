@@ -2,8 +2,8 @@
 from typing import Tuple
 from flax import struct
 import jax, jax.numpy as jnp
-import core
-import sensors
+import flexpal.mujoco.core as core
+import flexpal.mujoco.sensors as sensors
 @struct.dataclass
 class SensorPIDParams:
     kp: float = struct.field(pytree_node=False,default = 2.0)
@@ -112,5 +112,7 @@ if __name__ == '__main__':
     print(f"Physics Steps per Second: {physics_sps:.1f}  <-- [THE KEY METRIC]")
     print(f"current sensor position: {sensors.tendon_state(s_current, p.ids.tendon)}")
     print(f"current actuator position: {s_current.data.ctrl}")
+    print(f"sensor pos{sensors.site_pos(s_current, p.ids.site[-1])}")
+    print(f"sensor quat{sensors.site_quat_world(s_current, p.ids.site[-1])}")
     print(f"current sensor data: {s_current.data.sensordata}")
     print(f"current step: {reach}")

@@ -2,6 +2,9 @@
 import jax.numpy as jnp
 from typing import Any
 import jax
+from jax import lax
+from flax import struct
+from flexpal.common.rotation import rotmat_to_quat
 
 # s: CoreState
 def qpos(s: Any) -> jax.Array:
@@ -34,3 +37,7 @@ def tendon_length(s: Any, tendon_id: int) -> jax.Array:
 def tendon_state(s: Any, tendon_ids: jax.Array) -> jax.Array:
     return s.data.ten_length[tendon_ids]
 
+def site_quat_world(s, site_id: int) -> jnp.ndarray:
+    R_ws = s.data.site_xmat[site_id].reshape(3,3)   
+    q_ws = rotmat_to_quat(R_ws)                     
+    return q_ws

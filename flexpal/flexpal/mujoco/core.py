@@ -9,9 +9,8 @@ import mujoco
 import jax.numpy as jnp
 from jax import lax
 from mujoco import mjx
-import idbuild
-import sensors
-
+import flexpal.mujoco.idbuild as idbuild
+import flexpal.mujoco.sensors as sensors
 
 
 # =========================
@@ -159,7 +158,7 @@ if __name__ == '__main__':
     ctrl_init= jnp.zeros((9,), dtype=jnp.float32)
     s_next, _reach = inner_step(p, s_init, ctrl_init, pid_param)
     warmed_up_s  = core_step(p,s_next, ctrl_init)
-    ctrl = jnp.array([0.2,0.2,-1,-1,-0.2,-1,-1,-0.2,0.2], dtype=jnp.float32)
+    ctrl = jnp.array([1,1,1,1,1,1,1,1,1], dtype=jnp.float32)
     T = 300
     print(f"\n--- Running Timed Simulation for {T} Steps ---")
     
@@ -178,5 +177,6 @@ if __name__ == '__main__':
     print(f"Total time taken: {duration:.4f} seconds")
     print(f"Average time per control step: {duration / T * 1000:.4f} ms")
     print(f"Physics Steps per Second: {physics_sps:.1f}  <-- [THE KEY METRIC]")
-    print(sensors.site_pos(s_current, p.ids.site[-1]))
+    print(f"sensor pos{sensors.site_pos(s_current, p.ids.site[-1])}")
+    print(f"sensor quat{sensors.site_quat_world(s_current, p.ids.site[-1])}")
     print(f"current sensor position: {sensors.tendon_state(s_current, p.ids.tendon)}")
