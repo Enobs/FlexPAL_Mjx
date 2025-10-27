@@ -82,6 +82,8 @@ class FlexPALEnv(PipelineEnv):
         self.dL_max = 0.005  
         self.L_min  = jnp.ones((self.nt,), jnp.float32)*0.24      
         self.L_max  = jnp.ones((self.nt,),  jnp.float32)*0.33  
+        g = jnp.array([-0.08655875,0.02789154,0.8624209,0.53883886,-0.4978265,0.40249392,0.54755914], dtype=jnp.float32) 
+        self.goal = g.at[3:].set(g[3:] / (jnp.linalg.norm(g[3:]) + 1e-8))
         
     @property
     def action_size(self) -> int:
@@ -105,9 +107,7 @@ class FlexPALEnv(PipelineEnv):
         s0 = core.CoreState(data=data, t=jnp.array(0, jnp.int32))
         # sensor pos[-0.08655875  0.02789154  0.8624209 ]
         # sensor quat[ 0.53883886 -0.4978265   0.40249392  0.54755914]
-        g = jnp.array([-0.08655875,0.02789154,0.8624209,0.53883886,-0.4978265,0.40249392,0.54755914], dtype=jnp.float32) 
-        self.goal = g.at[3:].set(g[3:] / (jnp.linalg.norm(g[3:]) + 1e-8))
-        
+
         obs = self._get_obs(s0)
         zero = jnp.array(0., jnp.float32)
         metrics = dict(

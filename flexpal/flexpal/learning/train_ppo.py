@@ -3,7 +3,7 @@ from jax import random
 from brax.training.agents.ppo import train as ppo_train
 
 # 注意：用包内绝对导入（从项目根目录运行：python -m flexpal.learning.train_ppo）
-from flexpal.mujoco.flexpalenv import FlexPALEnv
+from flexpal.flexpal.mujoco.flexpal_env import FlexPALEnv
 
 XML_PATH = "/home/yinan/Documents/FlexPAL_Mjx/flexpal/flexpal/model/pickandplace.xml"
 
