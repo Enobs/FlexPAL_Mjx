@@ -6,7 +6,7 @@ import flexpal.mujoco.core as core
 import flexpal.mujoco.sensors as sensors
 @struct.dataclass
 class SensorPIDParams:
-    kp: float = struct.field(pytree_node=False,default = 2.0)
+    kp: float = struct.field(pytree_node=False,default = 2.5)
     ki: float = struct.field(pytree_node=False,default = 0.3)
     kd: float = struct.field(pytree_node=False,default = 0.0)
     tol: float = struct.field(pytree_node=False,default = 0.003)

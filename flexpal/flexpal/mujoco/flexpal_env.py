@@ -111,7 +111,7 @@ class FlexPALEnv(PipelineEnv):
         obs = self._get_obs(s0)
         zero = jnp.array(0., jnp.float32)
         metrics = dict(
-            inner_steps=jnp.array(0, jnp.int32)
+            inner_steps=jnp.array(0, jnp.float32)
         )
         return State(data, obs, zero, zero, metrics)
     
@@ -130,7 +130,7 @@ class FlexPALEnv(PipelineEnv):
         u_ctrl = jnp.clip(u_raw, -1.0, 1.0)
 
         s_next, _ = core.inner_step(p, s, u_ctrl, ctrl_param)
-        dT = self.pipeline_step(s.data, s_next.data.ctrl)   # <-- 直接用 self.pipeline_step
+        dT = self.pipeline_step(s.data, s_next.data.ctrl)  
         s_current = s.replace(data=dT, t=s.t + 1)
 
         sd = s_current.data.sensordata
@@ -166,7 +166,7 @@ class FlexPALEnv(PipelineEnv):
             s_next, done, pidp_next = self._step_controller_brax(p, s, ss_g, pidp, ctrl_param)
             return (s_next, done, k + 1, pidp_next)
 
-        init = (s, jnp.array(False), jnp.array(0, jnp.int32), pid_param)
+        init = (s, jnp.array(False), jnp.array(0, jnp.float32), pid_param)
         s_f, done_f, steps, pidp_f = jax.lax.while_loop(cond_fun, body_fun, init)
         return s_f, steps, pidp_f
 
@@ -189,7 +189,6 @@ class FlexPALEnv(PipelineEnv):
             self.p, s0, tendon_target, pid, self.ctrl_param, self.max_inner
         )
 
-
         data = s_f.data
         obs = self._get_obs(s_f)
         tip_site_id = self.p.ids.site[-1]  # 或 self.tip_site_id
@@ -207,15 +206,6 @@ class FlexPALEnv(PipelineEnv):
         imu = s_f.data.sensordata
         imu = jnp.where(imu.size > 0, imu, jnp.zeros((self.nt * 6,), jnp.float32))
         return jnp.concatenate([tendon, imu, self.goal])
-
-    
-
-
-
-
-
-
-
 
 
 if __name__ == "__main__":
@@ -240,12 +230,9 @@ if __name__ == "__main__":
     )
 
 
+    t0 = time.perf_counter()
     key = random.PRNGKey(0)
     state = env.reset(key)
-
-    t0 = time.time()
-
-
     action = jnp.array([0.30562606, 0.28558427, 0.28487587, 0.20157896, 0.28575578, 0.21900828, 0.14331605, 0.30143574, 0.33560848], dtype=jnp.float32)
 
     state = env.step(state, action)
@@ -253,7 +240,21 @@ if __name__ == "__main__":
     rew = device_get(state.reward)
     done = device_get(state.done)
     inner_steps = device_get(state.metrics['inner_steps'])
+    t1 = time.perf_counter()
+    duration = t1 - t0
 
     print(f"reward={float(rew):.4f}  inner_steps={int(inner_steps)}  done={float(done):.0f}  ")
-
-
+    print(f"Total time taken: {duration:.4f} seconds")
+    
+    t0 = time.perf_counter()
+    key = random.PRNGKey(0)
+    state = env.reset(key)
+    state = env.step(state, action)
+    rew = device_get(state.reward)
+    done = device_get(state.done)
+    inner_steps = device_get(state.metrics['inner_steps'])
+    t1 = time.perf_counter()
+    duration = t1 - t0
+    print(f"reward={float(rew):.4f}  inner_steps={int(inner_steps)}  done={float(done):.0f}  ")
+    print(f"Total time taken: {duration:.4f} seconds")
+    
