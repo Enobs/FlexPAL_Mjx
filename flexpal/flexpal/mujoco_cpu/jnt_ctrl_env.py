@@ -166,7 +166,7 @@ if __name__ == "__main__":
     # 2^9 + 1500 sobol
     
     from soft_med import SoftMed
-
+    import time
     env = JntCtrlEnv(
         robot=SoftMed(),
         renderer='viewer',
@@ -176,10 +176,13 @@ if __name__ == "__main__":
     env.reset(1)
     if env.is_render:
         env.render()
-    action = np.array([0.2,0.2,-1,-1,-0.2,-1,-1,-0.2,0.2])
+    # action = np.array([0.2,0.2,-1,-1,-0.2,-1,-1,-0.2,0.2])
+    action = np.array([0.204, 0.268, 0.211, 0.285, 0.195, 0.203, 0.198, 0.198, 0.286])
     stop_flag = True
     # env.gripper_ctrl("gripper_movement", 1)
     # while stop_flag:
+    start_time = time.time()
+    out_time = 0
     for i in range(400):
         check = env.get_current_state()
         if (env.pose_reach == 1):
@@ -188,4 +191,9 @@ if __name__ == "__main__":
 
         if env.is_render:
             env.render()
+            time_after_first_code = time.time()
+            duration_first_code = time_after_first_code - start_time
+            print(
+                f"Time taken by the first code block: {duration_first_code} seconds")
+    print(env.get_current_state())
     print(env.get_site_pos("LLLend_effector"))

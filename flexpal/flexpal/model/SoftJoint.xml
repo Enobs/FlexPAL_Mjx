@@ -15,7 +15,7 @@
 
     <!-- 14.7 ~= 30Kpa 40 ~= -80Kpa-->
     <actuator>
-        <motor name="L_axial_0" tendon="Llayer00" gear="30"/>
+        <!-- <motor name="L_axial_0" tendon="Llayer00" gear="30"/>
         <motor name="L_axial_1" tendon="Llayer01" gear="30"/>
         <motor name="L_axial_2" tendon="Llayer02" gear="30"/>
         <motor name="LL_axial_0" tendon="LLlayer00" gear="40"/>
@@ -23,7 +23,17 @@
         <motor name="LL_axial_2" tendon="LLlayer02" gear="40"/>
         <motor name="LLL_axial_0" tendon="LLLlayer00" gear="40"/>
         <motor name="LLL_axial_1" tendon="LLLlayer01" gear="40"/>
-        <motor name="LLL_axial_2" tendon="LLLlayer02" gear="40"/>
+        <motor name="LLL_axial_2" tendon="LLLlayer02" gear="40"/> -->
         <!-- <general name="gripper_movement" joint="gripper_moter" ctrllimited="true" ctrlrange="-100 200"/> -->
+        <!-- 0.24 0.29 0.33 -->
+        <position name="L_axial_0" tendon="Llayer00" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.15 0.33" />
+        <position name="L_axial_1" tendon="Llayer01" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.15 0.33" />
+        <position name="L_axial_2" tendon="Llayer02" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.15 0.33" />
+        <position name="LL_axial_0" tendon="LLlayer00" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.15 0.33"/>
+        <position name="LL_axial_1" tendon="LLlayer01" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.15 0.33"/>
+        <position name="LL_axial_2" tendon="LLlayer02" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.15 0.33"/>
+        <position name="LLL_axial_0" tendon="LLLlayer00" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.15 0.33"/>
+        <position name="LLL_axial_1" tendon="LLLlayer01" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.15 0.33"/>
+        <position name="LLL_axial_2" tendon="LLLlayer02" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.15 0.33"/>
     </actuator>
 </mujoco>

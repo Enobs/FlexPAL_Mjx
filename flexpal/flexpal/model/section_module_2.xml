@@ -20,7 +20,7 @@
     </asset>
     <default>
         <default class="hingeB">
-            <joint stiffness="0.0755" damping="0.5" armature="0.005"/>
+            <joint stiffness="0.0755" damping="7" armature="0.005"/>
         </default>
         <default class="interZ">
             <joint type="slide" stiffness='5870' ref="-0.00120" armature="0.012" damping="7" frictionloss="0.2" />

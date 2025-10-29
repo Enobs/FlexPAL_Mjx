@@ -1,153 +1,71 @@
-# flex_env.py  —— slimmer JIT, no static self, no pipeline_step inside jit
+# flex_env.py
 import jax
 import jax.numpy as jnp
 import mujoco
+from typing import Tuple, Any
 from brax.envs.base import PipelineEnv, State
 from brax.io import mjcf as brax_mjcf
+
 import flexpal.mujoco.idbuild as idbuild
 import flexpal.mujoco.core as core
-from typing import Tuple, Any
-from flexpal.mujoco.control import SensorPIDParams
-from flexpal.mujoco import sensors, control
+from flexpal.mujoco import sensors
 
-# ---------- small pure helpers ----------
 
-@jax.jit
+
 def quat_geodesic_angle(q_current: jnp.ndarray, q_goal: jnp.ndarray, eps=1e-8) -> jnp.ndarray:
     q1 = q_current / (jnp.linalg.norm(q_current) + eps)
     q2 = q_goal    / (jnp.linalg.norm(q_goal)    + eps)
     c = jnp.clip(jnp.abs(jnp.dot(q1, q2)), 0.0, 1.0)
     return 2.0 * jnp.arccos(c)
 
-@jax.jit
-def compute_reward(s: core.CoreState,
-                   goal_pos: jnp.ndarray,      # (3,)
-                   goal_quat: jnp.ndarray,     # (4,) (w,x,y,z)
-                   tip_site_id: int,
-                   w_pos: float = 1.0,
-                   w_ori: float = 0.2) -> jnp.ndarray:
-    ee_pos  = sensors.site_pos(s, tip_site_id)
-    ee_quat = sensors.site_quat_world(s, tip_site_id)
+def reaching_reward(s: "core.CoreState",
+                    goal_pos: jnp.ndarray,     # (3,)
+                    goal_quat: jnp.ndarray,    # (4,) (w, x, y, z)
+                    tip_site_id: int,
+                    w_pos: float,
+                    w_ori: float) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    """返回 (reward, pos_err, ang_err)。奖励是负误差（还未加成功奖励/控制惩罚）。"""
+    ee_pos  = sensors.site_pos(s, tip_site_id)          # (3,)
+    ee_quat = sensors.site_quat_world(s, tip_site_id)   # (4,)
     ee_quat = ee_quat / (jnp.linalg.norm(ee_quat) + 1e-8)
     pos_err = jnp.linalg.norm(ee_pos - goal_pos)
     ang_err = quat_geodesic_angle(ee_quat, goal_quat)
-    return -(w_pos * pos_err + w_ori * ang_err)
+    reward  = -(w_pos * pos_err + w_ori * ang_err)
+    return reward, pos_err, ang_err
 
-# ---------- PURE-JAX control loop (no self captured) ----------
-
-@jax.jit
-def _step_controller_jit(p: core.CoreParams,
-                         s: core.CoreState,
-                         ss_g: jax.Array,
-                         pid_param: SensorPIDParams,
-                         ctrl_param: core.PIDPiecewise) -> Tuple[core.CoreState, jax.Array, SensorPIDParams]:
-    tendon_full = sensors.tendon_state(s, p.ids.tendon)
-    delta_u, new_integral = control.v_pid_sensor(ss_g, tendon_full, pid_param, p.ctrl_dt)
-    u_ctrl = jnp.clip(s.data.ctrl + delta_u, -1.0, 1.0)
-
-    # inner PID step
-    s_next, _ = core.inner_step(p, s, u_ctrl, ctrl_param)
-    # integrate physics for one control period
-    s_current = core.core_step(p, s_next, s_next.data.ctrl)
-
-    tendon_after = sensors.tendon_state(s_current, p.ids.tendon)
-    pose_reach = jnp.all(jnp.abs(tendon_after - ss_g) < pid_param.tol)
-    new_pid = pid_param.replace(integral=new_integral)
-    return s_current, pose_reach, new_pid
-
-@jax.jit
-def _loop_until_reach_jit(p, s, ss_g, pid_param, ctrl_param, max_steps: int):
-    def cond_fun(loop_state):
-        _s, done, k, _pid = loop_state
-        return (~done) & (k < max_steps)
-
-    def body_fun(loop_state):
-        s, _done, k, pidp = loop_state
-        s_next, done, pidp_next = _step_controller_jit(p, s, ss_g, pidp, ctrl_param)
-        return (s_next, done, k + 1, pidp_next)
-
-    init = (s, jnp.array(False), jnp.array(0, jnp.float32), pid_param)
-    s_f, done_f, steps, pidp_f = jax.lax.while_loop(cond_fun, body_fun, init)
-    return s_f, steps, pidp_f
-
-@jax.jit
-def _action_to_target_absolute(action: jnp.ndarray,
-                               L_min: jnp.ndarray,
-                               L_max: jnp.ndarray) -> jnp.ndarray:
-    a01 = 0.5 * (jnp.clip(action, -1.0, 1.0) + 1.0)  # [-1,1] -> [0,1]
-    return L_min + a01 * (L_max - L_min)
-
-@jax.jit
-def _action_to_tendon_target_rel(s: core.CoreState,
-                                 action: jnp.ndarray,
-                                 p: core.CoreParams,
-                                 dL_max: float,
-                                 L_min: jnp.ndarray,
-                                 L_max: jnp.ndarray) -> jnp.ndarray:
-    L  = sensors.tendon_state(s, p.ids.tendon)
-    dL = jnp.clip(action, -1.0, 1.0) * dL_max
-    return jnp.clip(L + dL, L_min, L_max)
-
-@jax.jit
-def _step_env_jit(state: State,
-                  action: jnp.ndarray,
-                  p: core.CoreParams,
-                  ctrl_param: core.PIDPiecewise,
-                  kp: float, ki: float, tol: float,
-                  continuous_mode: bool,
-                  goal: jnp.ndarray,
-                  tip_site_id: int,
-                  max_inner: int,
-                  dL_max: float,
-                  L_min: jnp.ndarray,
-                  L_max: jnp.ndarray) -> State:
-    # build PID param fresh each step (stateless env)
-    pid_integral = jnp.zeros((len(p.ids.tendon),), dtype=jnp.float32)
-    pid = SensorPIDParams(kp=kp, ki=ki, tol=tol, integral=pid_integral)
-
-    s0 = core.CoreState(data=state.pipeline_state, t=jnp.array(0, jnp.int32))
-
-    # tendon_target = jax.lax.cond(
-    #     continuous_mode,
-    #     lambda oa: _action_to_tendon_target_rel(oa[0], oa[1], p, dL_max, L_min, L_max),
-    #     lambda oa: _action_to_target_absolute(oa[1], L_min, L_max),
-    #     operand=(s0, action)
-    # )
-    tendon_target = action
-    s_f, inner_steps, _ = _loop_until_reach_jit(p, s0, tendon_target, pid, ctrl_param, max_inner)
-
-    # obs: tendon + imu(sensordata) + goal (shape must be static)
-    tendon = sensors.tendon_state(s_f, p.ids.tendon)
-    imu = s_f.data.sensordata  # length is fixed by model
-    obs = jnp.concatenate([tendon, imu, goal])
-
-    reward = compute_reward(s_f, goal[:3], goal[3:], tip_site_id)
-    done = jnp.array(1., jnp.float32) * (1.0 - jnp.float32(continuous_mode))
-
-    # update metrics (State.metrics is a dict; keep it, but replace key we care)
-    new_metrics = state.metrics.copy()
-    new_metrics.update(inner_steps=inner_steps)
-
-    return state.replace(pipeline_state=s_f.data, obs=obs, reward=reward, done=done, metrics=new_metrics)
-
-# ---------- Env class (thin wrapper) ----------
 
 class FlexPALEnv(PipelineEnv):
-    def __init__(self,
-                 xml_path: str,
-                 control_freq: float = 25,
-                 kp: float = 2.0,
-                 ki: float = 0.3,
-                 tol: float = 1e-3,
-                 max_inner_steps: int = 400,
-                 ):
-        mj_model = mujoco.MjModel.from_xml_path(xml_path)
+    """
+    - 每个 env.step() 推进一个控制周期（p.substeps 个物理步）。
+    - 动作 -> (相对/绝对) 腱长目标 -> 一阶低通 -> 写入 actuator 槽位 -> 推进一步。
+    - 误差低于阈值连续 hold_steps 步则成功（+bonus 且 done=True）。
+    - 不在类内使用 @jax.jit；让 Brax 训练器在外层 wrap+jit。
+    """
 
+    def __init__(self,
+                 xml_path: str = "/home/yinan/Documents/FlexPAL_Mjx/flexpal/flexpal/model/pickandplace.xml",
+                 control_freq: float = 20.0,
+                 tol_pos: float = 5e-3,          
+                 tol_ang: float = 5e-2,          
+                 hold_steps: int = 3,            
+                 alpha_smooth: float = 0,      
+                 action_mode: str = "absolute",  
+                 dL_max: float = 0.005,          
+                 L_min_val: float = 0.15,
+                 L_max_val: float = 0.33,
+                 w_pos: float = 1.0,
+                 w_ori: float = 0.2,
+                 w_du: float  = 1e-2,            
+                 r_bonus: float = 1.0,           
+                 ):
+        # 1) 载入模型（MJCF -> Sys），并用 MJX 后端
+        mj_model = mujoco.MjModel.from_xml_path(xml_path)
         try:
             sys = brax_mjcf.load_model(mj_model)
         except Exception:
             sys = brax_mjcf.load(xml_path)
 
+        # 2) 建 ID、MJX Params
         self.actuator_index = idbuild.gen_actuator_names()
         self.site_index     = idbuild.gen_site_names()
         self.tendon_index   = idbuild.gen_tendon_names()
@@ -157,165 +75,152 @@ class FlexPALEnv(PipelineEnv):
             sites=self.site_index, tendons=self.tendon_index,
             actuators=self.actuator_index)
 
-        self.ctrl_param = core.core_build_pid_param()
-
         model_dt = float(mj_model.opt.timestep)
         n_frames = int(round((1.0 / control_freq) / model_dt))
-
-        # still inherit PipelineEnv for wrappers; we'll NOT call pipeline_step in jit
         super().__init__(sys, backend="mjx", n_frames=n_frames)
 
-        # runtime scalars/arrays
-        self.continuous_mode = False
-        self.kp = float(kp)
-        self.ki = float(ki)
-        self.tol = float(tol)
-        self.max_inner = int(max_inner_steps)
-
         self.nt = len(self.p.ids.tendon)
-        self.dL_max = 0.005
-        self.L_min  = jnp.ones((self.nt,), jnp.float32) * 0.24
-        self.L_max  = jnp.ones((self.nt,), jnp.float32) * 0.33
+        self.L_min  = jnp.ones((self.nt,), jnp.float32) * L_min_val
+        self.L_max  = jnp.ones((self.nt,), jnp.float32) * L_max_val
+        self.dL_max = float(dL_max)
+        self.alpha  = float(alpha_smooth)
 
-        # goal pos+quat (normalize quat part)
-        g = jnp.array([-0.08655875, 0.02789154, 0.8624209,
-                        0.53883886, -0.4978265, 0.40249392, 0.54755914], dtype=jnp.float32)
+        self.tol_pos = float(tol_pos)
+        self.tol_ang = float(tol_ang)
+        self.hold_steps = int(hold_steps)
+
+        self.action_mode = str(action_mode).lower()
+        assert self.action_mode in ("relative", "absolute")
+
+        g = jnp.array([-0.41326547,0.01179456,0.75909054,
+                        0.9773609 ,0.12534763,-0.03064912, 0.1676719], dtype=jnp.float32)
         self.goal = g.at[3:].set(g[3:] / (jnp.linalg.norm(g[3:]) + 1e-8))
 
-        # cache scalar ids to avoid Python/container in jit
         self.tip_site_id = int(self.p.ids.site[-1])
+
+        self.w_pos = float(w_pos)
+        self.w_ori = float(w_ori)
+        self.w_du  = float(w_du)
+        self.r_bonus = float(r_bonus)
+
+    # ====== Brax Env API ======
 
     @property
     def action_size(self) -> int:
         return int(self.nt)
 
     def reset(self, rng):
+        
         data = self.pipeline_init(self.sys.qpos0, jnp.zeros(self.sys.nv))
+
+        init_ctrl = jnp.ones((self.nt,), jnp.float32) * 0.29
+        data = data.replace(ctrl=data.ctrl.at[self.p.ids.actuator].set(init_ctrl))
+
         s0 = core.CoreState(data=data, t=jnp.array(0, jnp.int32))
         obs = self._get_obs(s0)
+
         zero = jnp.array(0., jnp.float32)
-        metrics = dict(inner_steps=jnp.array(0, jnp.float32))
+        metrics = dict(
+            inner_steps=zero,
+            success_count=zero
+        )
         return State(data, obs, zero, zero, metrics)
 
-    def step(self, state, action):
-        # thin call into pure-jit function
-        return _step_env_jit(
-            state, action,
-            self.p, self.ctrl_param,
-            jnp.float32(self.kp), jnp.float32(self.ki), jnp.float32(self.tol),
-            bool(self.continuous_mode),
-            self.goal, int(self.tip_site_id),
-            int(self.max_inner),
-            jnp.float32(self.dL_max),
-            self.L_min, self.L_max
-        )
+    def step(self, state: State, action: jnp.ndarray) -> State:
+        """每个环境步：动作->目标->低通->推进一步->奖励/终止。"""
+        s0 = core.CoreState(data=state.pipeline_state, t=jnp.array(0, jnp.int32))
+        u_prev = s0.data.ctrl[self.p.ids.actuator]
+        target =jax.lax.cond(
+            self.action_mode == "relative",
+            lambda _ : jnp.clip(sensors.tendon_state(s0, self.p.ids.tendon) + jnp.clip(action, -1.0, 1.0) * self.dL_max, self.L_min, self.L_max),
+            lambda _ : self.L_min + 0.5 * (jnp.clip(action, -1.0, 1.0) + 1.0) * (self.L_max - self.L_min),
+            operand = None)
 
-    def _get_obs(self, s_f: core.CoreState) -> jax.Array:
-        tendon = sensors.tendon_state(s_f, self.p.ids.tendon)
-        imu = s_f.data.sensordata  # assume fixed length by model
+        u_new  = self.alpha * u_prev + (1.0 - self.alpha) * target
+
+        data1 = self.pipeline_step(s0.data, u_new)
+        s1 = core.CoreState(data=data1, t=s0.t + 1)
+
+        base_r, pos_err, ang_err = reaching_reward(
+            s1, self.goal[:3], self.goal[3:], self.tip_site_id, self.w_pos, self.w_ori
+        )
+        du_pen = jnp.mean((u_new - u_prev) ** 2)
+        reward = base_r - self.w_du * du_pen
+
+
+        ok = jnp.logical_and(pos_err < self.tol_pos, ang_err < self.tol_ang)
+        success_count = jnp.where(ok, state.metrics["success_count"] + 1.0, jnp.array(0.0, jnp.float32))
+        done = jnp.array(success_count >= float(self.hold_steps), jnp.float32)
+
+        reward = jnp.where(done > 0, reward + self.r_bonus, reward)
+
+        obs = self._get_obs(s1)
+        metrics = dict(state.metrics)
+        metrics["success_count"] = success_count
+        metrics["inner_steps"] = jnp.array(1.0, jnp.float32)  
+
+        return state.replace(pipeline_state=s1.data, obs=obs, reward=reward, done=done, metrics=metrics)
+
+    def _get_obs(self, s: "core.CoreState") -> jnp.ndarray:
+        tendon = sensors.tendon_state(s, self.p.ids.tendon)  
+        imu = s.data.sensordata
+        imu = jnp.where(imu.size > 0, imu, jnp.zeros((self.nt * 6,), jnp.float32))
         return jnp.concatenate([tendon, imu, self.goal])
 
 
 
 if __name__ == "__main__":
     import time
-    import numpy as onp
-    from jax import random, device_get
-
-    xml_path = "/home/yinan/Documents/FlexPAL_Mjx/flexpal/flexpal/model/pickandplace.xml"
-
-    control_freq = 25.0
-    kp, ki = 2.0, 0.3
-    tol = 1e-3
-    max_inner_steps = 400
-
-    env = FlexPALEnv(
-        xml_path=xml_path,
-        control_freq=control_freq,
-        kp=kp,
-        ki=ki,
-        tol=tol,
-        max_inner_steps=max_inner_steps,
-    )
-
-
     t0 = time.perf_counter()
-    key = random.PRNGKey(0)
-    state = env.reset(key)
-    action = jnp.array([0.30562606, 0.28558427, 0.28487587, 0.20157896, 0.28575578, 0.21900828, 0.14331605, 0.30143574, 0.33560848], dtype=jnp.float32)
-
-    state = env.step(state, action)
-
-    rew = device_get(state.reward)
-    done = device_get(state.done)
-    inner_steps = device_get(state.metrics['inner_steps'])
+    env= FlexPALEnv(action_mode="absolute")
+    key   = jax.random.PRNGKey(0)
+    jit_reset = jax.jit(env.reset)
+    jit_step = jax.jit(env.step)
+    state = jit_reset(key)
+    warm_step = jit_step(state, (jnp.ones(9,)*0.29))
+    action = jnp.array(([-0.49,0.1,-0.5,0.0,-0.5,-0.5,-0.5,-0.5,0.0]),dtype=jnp.float32)
     t1 = time.perf_counter()
     duration = t1 - t0
-
-    print(f"reward={float(rew):.4f}  inner_steps={int(inner_steps)}  done={float(done):.0f}  ")
     print(f"Total time taken: {duration:.4f} seconds")
-    
     t0 = time.perf_counter()
-    key = random.PRNGKey(0)
-    state = env.reset(key)
-    state = env.step(state, action)
-    rew = device_get(state.reward)
-    done = device_get(state.done)
-    inner_steps = device_get(state.metrics['inner_steps'])
+    for _ in range(40):
+        state = jit_step(state , action)
+    s_current = core.CoreState(data=state.pipeline_state, t=jnp.array(0, jnp.int32))
+    p = env.p
     t1 = time.perf_counter()
     duration = t1 - t0
-    print(f"reward={float(rew):.4f}  inner_steps={int(inner_steps)}  done={float(done):.0f}  ")
     print(f"Total time taken: {duration:.4f} seconds")
+    print(f"\n--- Final Performance Report ---")
+    print(f"current tendon length: {sensors.tendon_state(s_current, p.ids.tendon)}")
+    print(f"current actuator ctrl: {s_current.data.ctrl}")
+    print(f"tip site pos : {sensors.site_pos(s_current, p.ids.site[-1])}")
+    print(f"tip site quat: {sensors.site_quat_world(s_current, p.ids.site[-1])}")
+    print(f"current sensordata len={len(s_current.data.sensordata)}")
+    print(f"current reward rew={state.reward}")
     
 
 
-# if __name__ == "__main__":
-#     import time
-#     import numpy as onp
-#     from jax import random, device_get
+# --- Final Performance Report ---
+# current tendon length: [0.20139477 0.24779536 0.20266755 0.24372745 0.19784747 0.20033537
+#  0.19892767 0.19889532 0.24373154]
+# current actuator ctrl: [0.19590001 0.24900001 0.19500001 0.24000001 0.19500001 0.19500001
+#  0.19500001 0.19500001 0.24000001]
+# tip site pos : [-0.41337612  0.01178646  0.75916535]
+# tip site quat: [ 0.97735983  0.12537758 -0.03053388  0.16767731]
+# current sensordata len=54
 
-#     xml_path = "/home/yinan/Documents/FlexPAL_Mjx/flexpal/flexpal/model/pickandplace.xml"
+# --- Final Performance Report ---
+# current tendon length: [0.20139505 0.24779561 0.20266783 0.2437269  0.19784687 0.2003347
+#  0.1989274  0.1988951  0.24373138]
+# current actuator ctrl: [0.19590001 0.24900001 0.19500001 0.24000001 0.19500001 0.19500001
+#  0.19500001 0.19500001 0.24000001]
+# tip site pos : [-0.41337886  0.01178995  0.7591661 ]
+# tip site quat: [ 0.9773599   0.12537761 -0.03053319  0.16767834]
 
-#     control_freq = 25.0
-#     kp, ki = 2.0, 0.3
-#     tol = 1e-3
-#     max_inner_steps = 400
-
-#     env = FlexPALEnv(
-#         xml_path=xml_path,
-#         control_freq=control_freq,
-#         kp=kp,
-#         ki=ki,
-#         tol=tol,
-#         max_inner_steps=max_inner_steps,
-#     )
-
-
-#     t0 = time.perf_counter()
-#     key = random.PRNGKey(0)
-#     state = env.reset(key)
-#     action = jnp.array([0.30562606, 0.28558427, 0.28487587, 0.20157896, 0.28575578, 0.21900828, 0.14331605, 0.30143574, 0.33560848], dtype=jnp.float32)
-
-#     state = env.step(state, action)
-
-#     rew = device_get(state.reward)
-#     done = device_get(state.done)
-#     inner_steps = device_get(state.metrics['inner_steps'])
-#     t1 = time.perf_counter()
-#     duration = t1 - t0
-
-#     print(f"reward={float(rew):.4f}  inner_steps={int(inner_steps)}  done={float(done):.0f}  ")
-#     print(f"Total time taken: {duration:.4f} seconds")
-    
-#     t0 = time.perf_counter()
-#     key = random.PRNGKey(0)
-#     state = env.reset(key)
-#     state = env.step(state, action)
-#     rew = device_get(state.reward)
-#     done = device_get(state.done)
-#     inner_steps = device_get(state.metrics['inner_steps'])
-#     t1 = time.perf_counter()
-#     duration = t1 - t0
-#     print(f"reward={float(rew):.4f}  inner_steps={int(inner_steps)}  done={float(done):.0f}  ")
-#     print(f"Total time taken: {duration:.4f} seconds")
-    
+# --- Final Performance Report ---
+# current tendon length: [0.20139529 0.24779706 0.20266668 0.24372736 0.19784774 0.2003347
+#  0.19892734 0.19889508 0.24373123]
+# current actuator ctrl: [0.19590001 0.24900001 0.19500001 0.24000001 0.19500001 0.19500001
+#  0.19500001 0.19500001 0.24000001]
+# tip site pos : [-0.41341022  0.01177989  0.75918734]
+# tip site quat: [ 0.97736     0.12538095 -0.03050144  0.16768108]
