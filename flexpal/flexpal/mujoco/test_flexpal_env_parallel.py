@@ -3,7 +3,7 @@ import time
 import jax
 import jax.numpy as jnp
 from brax.envs.wrappers.training import VmapWrapper
-from flexpal.mujoco.flexpal_env import FlexPALEnv   # ← 按你的实际路径调整
+from flexpal.flexpal.mujoco.flexpal_env_old import FlexPALEnv   # ← 按你的实际路径调整
 
 # ===== 单环境 sanity check =====
 env = FlexPALEnv()

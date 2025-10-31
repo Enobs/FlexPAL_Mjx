@@ -1,14 +1,14 @@
 import time, jax, jax.numpy as jnp
-from flexpal.mujoco.flexpal_env import FlexPALEnv
+from flexpal.flexpal.mujoco.flex_env_steps import FlexPALEnv
 
-env = FlexPALEnv(action_mode="relative")
+env = FlexPALEnv(action_mode="absolute")
 key = jax.random.PRNGKey(0)
 state = env.reset(key)
 action = jax.random.uniform(key, (env.action_size,), minval=-1.0, maxval=1.0)
 
 from brax.envs.wrappers.training import VmapWrapper
 B = 32
-benv = VmapWrapper(FlexPALEnv(action_mode="relative"), batch_size=B)
+benv = VmapWrapper(FlexPALEnv(action_mode="absolute"), batch_size=B)
 key   = jax.random.PRNGKey(0)
 state = benv.reset(key)
 acts  = jax.random.uniform(key, (B, benv.action_size), minval=-1.0, maxval=1.0)

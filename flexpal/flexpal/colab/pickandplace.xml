@@ -1,0 +1,477 @@
+<mujoco model="soft joint scene">
+  <!-- Add some fluid viscosity to prevent the hanging box from jiggling forever -->
+  <option gravity="0 0 -9.81"/>
+  <option iterations="30" ls_iterations="10" timestep="0.002" integrator="implicitfast">
+    <flag eulerdamp="disable"/>
+  </option>
+  <statistic center="0 0.1 0.65" extent="1"/>
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <scale com="0.01" jointlength="0.05" jointwidth="0.03" constraint="0.01"/>
+  </visual>
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+    <material name="metal" rgba="0.58 0.58 0.58 1"/>
+    <material name="silicone" rgba="0.1882 0.1882 0.1882 1"/>
+    <material name="gray" rgba="0.4627 0.4627 0.4627 1"/>
+    <material name="black" rgba="0.149 0.149 0.149 1"/>
+    <material name="translucent_white_plastic" rgba="0.9 0.9 0.9 0.7" specular="0.8" shininess="0.6"/>
+    <material name="matte_white_plastic" rgba="0.85 0.85 0.85 0.8" specular="0.2" shininess="0.1"/>
+    <material name="acrylic_white_plastic" rgba="0.95 0.95 0.95 0.6" specular="0.9" shininess="0.9"/>
+    <material name="clear_tube_plastic" rgba="1 1 1 0.35" specular="0.9" shininess="0.8" reflectance="0.2"/>
+    <material name="matte_black_plastic" rgba="0.15 0.15 0.15 1" specular="0.1" shininess="0.1"/>
+    <material name="polished_silver" rgba="0.8 0.8 0.8 1" specular="0.9" shininess="0.9"/>
+  </asset>
+  <compiler angle="degree" meshdir="./assets">
+      <lengthrange mode="muscle" uselimit="true"/>
+  </compiler>
+  <default>
+      <default class="hingeB">
+          <joint stiffness="0.0755" damping="7" armature="0.005"/>
+      </default>
+      <default class="interZ">
+          <joint type="slide" stiffness='5870' ref="-0.00120" armature="0.012" damping="7" frictionloss="0.2" />
+      </default>
+      <default class="secZ">
+          <joint type="slide" stiffness='5870' ref="-0.00120" armature="0.035" damping="11" frictionloss="0.2"/>
+      </default>
+      <default class="str">
+          <mesh scale="0.001 0.001 0.001"/>
+          <general biastype="affine"/>
+      </default>
+      <default class="col">
+          <geom contype="1" conaffinity="1" group="3" rgba="0.9 0.2 0.2 0.25"/>
+      </default>
+  </default>
+
+  <worldbody>
+    <light pos="0 0 1"/>
+    <light pos="0 -0.2 1" dir="0 0.2 -0.8" directional="true"/>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+    <body name='Llayer_core' pos='0 0 1.5'>
+            <inertial pos="0.00 0.00 -0.047" quat="1 0 0 0" mass="0.452" diaginertia="6.975e-4 6.975e-4 5.153e-4"/>
+            <geom class="col" name="LMujoco_end_col_1" type="cylinder" size="0.0225 0.0451" pos="0 0.03 -0.0451"/>
+            <geom class="col" name="LMujoco_end_col_2" type="cylinder" size="0.0225 0.0451" pos="0.025981 -0.015 -0.0451"/>
+            <geom class="col" name="LMujoco_end_col_3" type="cylinder" size="0.0225 0.0451" pos="-0.025981 -0.015 -0.0451"/>
+            <site name="Limu_site_01" pos="0 0.03 -0.0402 "/>
+            <site name="Limu_site_02" pos="0.025981 -0.015 -0.0402 "/>
+            <site name="Limu_site_03" pos="-0.025981 -0.015 -0.0402 "/>
+            <site name="Llayer01" pos="0 0.03 -0.0902 "/>
+            <site name="Llayer11" pos="0.025981 -0.015 -0.0902 "/>
+            <site name="Llayer21" pos="-0.025981 -0.015 -0.0902 "/>
+            <body name='Lsec_1' pos= '0 0 -0.1386' euler='180 0 0'>
+                <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                <geom class="col" name="LMujoco_Fix_Ring_col_1_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                <geom class="col" name="LMujoco_Fix_Ring_col_1_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                <geom class="col" name="LMujoco_Fix_Ring_col_1_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                <geom class="col" name="LMujoco_Fix_Ring_col_1_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                <joint name="Lsec_1_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                <joint name="Lsec_1_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                <joint name="Lsec_1_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
+                <site name="Llayer02" pos="0 -0.03 0.005 "/>
+                <site name="Llayer12" pos="0.025981 0.015 0.005 "/>
+                <site name="Llayer22" pos="-0.025981 0.015 0.005 "/>
+                <body name='Lsec_2' pos= '0 0 0.0484' euler='0 0 0'>
+                    <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                    <geom class="col" name="LMujoco_Fix_Ring_col_2_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                    <geom class="col" name="LMujoco_Fix_Ring_col_2_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                    <geom class="col" name="LMujoco_Fix_Ring_col_2_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                    <geom class="col" name="LMujoco_Fix_Ring_col_2_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                    <joint name="Lsec_2_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                    <joint name="Lsec_2_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                    <joint name="Lsec_2_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
+                    <site name="Llayer03" pos="0 -0.03 0.005 "/>
+                    <site name="Llayer13" pos="0.025981 0.015 0.005 "/>
+                    <site name="Llayer23" pos="-0.025981 0.015 0.005 "/>
+                    <body name='Lsec_3' pos= '0 0 0.0484' euler='0 0 0'>
+                        <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                        <geom class="col" name="LMujoco_Fix_Ring_col_3_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                        <geom class="col" name="LMujoco_Fix_Ring_col_3_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                        <geom class="col" name="LMujoco_Fix_Ring_col_3_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                        <geom class="col" name="LMujoco_Fix_Ring_col_3_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                        <joint name="Lsec_3_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                        <joint name="Lsec_3_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                        <joint name="Lsec_3_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
+                        <site name="Llayer04" pos="0 -0.03 0.005 "/>
+                        <site name="Llayer14" pos="0.025981 0.015 0.005 "/>
+                        <site name="Llayer24" pos="-0.025981 0.015 0.005 "/>
+                        <body name='Lsec_4' pos= '0 0 0.0484' euler='0 0 0'>
+                            <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                            <geom class="col" name="LMujoco_Fix_Ring_col_4_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                            <geom class="col" name="LMujoco_Fix_Ring_col_4_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                            <geom class="col" name="LMujoco_Fix_Ring_col_4_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                            <geom class="col" name="LMujoco_Fix_Ring_col_4_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                            <joint name="Lsec_4_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                            <joint name="Lsec_4_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                            <joint name="Lsec_4_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
+                            <site name="Llayer05" pos="0 -0.03 0.005 "/>
+                            <site name="Llayer15" pos="0.025981 0.015 0.005 "/>
+                            <site name="Llayer25" pos="-0.025981 0.015 0.005 "/>
+                            <body name='Lsec_5' pos= '0 0 0.0484' euler='0 0 0'>
+                                <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                                <geom class="col" name="LMujoco_Fix_Ring_col_5_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                                <geom class="col" name="LMujoco_Fix_Ring_col_5_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                                <geom class="col" name="LMujoco_Fix_Ring_col_5_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                                <geom class="col" name="LMujoco_Fix_Ring_col_5_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                                <joint name="Lsec_5_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242" limited="true" range="-50 50"/>
+                                <joint name="Lsec_5_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242" limited="true" range="-50 50"/>
+                                <joint name="Lsec_5_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242" limited="true" range="-0.023 0.001" />
+                                <site name="Llayer06" pos="0 -0.03 0.005 "/>
+                                <site name="Llayer16" pos="0.025981 0.015 0.005 "/>
+                                <site name="Llayer26" pos="-0.025981 0.015 0.005 "/>
+                                <body name='Lsec_6' pos= '0 0 0.0484' euler='0 0 0'>
+                                    <inertial pos="0.00 0.00 0.0045" quat="1 0 0 0" mass="0.036" diaginertia="2.092e-6 2.092e-6 4.135e-6"/>
+                                    <geom class="col" name="LCap_1" type="cylinder" size="0.02 0.004" pos="0 -0.03 0.004 "/>
+                                    <geom class="col" name="LCap_2" type="cylinder" size="0.02 0.004" pos="0.025981 0.015 0.004 "/>
+                                    <geom class="col" name="LCap_3" type="cylinder" size="0.02 0.004" pos="-0.025981 0.015 0.004 "/>
+                                    <joint name="Lsec_6_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                    <joint name="Lsec_6_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                    <joint name="Lsec_6_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.010 0.001" />
+                                    <site name="Llayer07" pos="0 -0.03 0 "/>
+                                    <site name="Llayer17" pos="0.025981 0.015 0 "/>
+                                    <site name="Llayer27" pos="-0.025981 0.015 0 "/>
+                                    <body name="Lmount" pos= '0 0 0.008' euler='180 0 0 '>
+                                        <body name='LLlayer_core'>
+                                            <inertial pos="0.00 0.00 -0.047" quat="1 0 0 0" mass="0.452" diaginertia="6.975e-4 6.975e-4 5.153e-4"/>
+                                            <geom class="col" name="LLMujoco_end_col_1" type="cylinder" size="0.0225 0.0451" pos="0 0.03 -0.0451"/>
+                                            <geom class="col" name="LLMujoco_end_col_2" type="cylinder" size="0.0225 0.0451" pos="0.025981 -0.015 -0.0451"/>
+                                            <geom class="col" name="LLMujoco_end_col_3" type="cylinder" size="0.0225 0.0451" pos="-0.025981 -0.015 -0.0451"/>
+                                            <site name="LLimu_site_01" pos="0 0.03 -0.0402 "/>
+                                            <site name="LLimu_site_02" pos="0.025981 -0.015 -0.0402 "/>
+                                            <site name="LLimu_site_03" pos="-0.025981 -0.015 -0.0402 "/>
+                                            <site name="LLlayer01" pos="0 0.03 -0.0902 "/>
+                                            <site name="LLlayer11" pos="0.025981 -0.015 -0.0902 "/>
+                                            <site name="LLlayer21" pos="-0.025981 -0.015 -0.0902 "/>
+                                            <body name='LLsec_1' pos= '0 0 -0.1386' euler='180 0 0'>
+                                                <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                                                <geom class="col" name="LLMujoco_Fix_Ring_col_1_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                                                <geom class="col" name="LLMujoco_Fix_Ring_col_1_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                                                <geom class="col" name="LLMujoco_Fix_Ring_col_1_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                                                <geom class="col" name="LLMujoco_Fix_Ring_col_1_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                                                <joint name="LLsec_1_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                <joint name="LLsec_1_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                <joint name="LLsec_1_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
+                                                <site name="LLlayer02" pos="0 -0.03 0.005 "/>
+                                                <site name="LLlayer12" pos="0.025981 0.015 0.005 "/>
+                                                <site name="LLlayer22" pos="-0.025981 0.015 0.005 "/>
+                                                <body name='LLsec_2' pos= '0 0 0.0484' euler='0 0 0'>
+                                                    <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                                                    <geom class="col" name="LLMujoco_Fix_Ring_col_2_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                                                    <geom class="col" name="LLMujoco_Fix_Ring_col_2_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                                                    <geom class="col" name="LLMujoco_Fix_Ring_col_2_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                                                    <geom class="col" name="LLMujoco_Fix_Ring_col_2_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                                                    <joint name="LLsec_2_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                    <joint name="LLsec_2_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                    <joint name="LLsec_2_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
+                                                    <site name="LLlayer03" pos="0 -0.03 0.005 "/>
+                                                    <site name="LLlayer13" pos="0.025981 0.015 0.005 "/>
+                                                    <site name="LLlayer23" pos="-0.025981 0.015 0.005 "/>
+                                                    <body name='LLsec_3' pos= '0 0 0.0484' euler='0 0 0'>
+                                                        <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                                                        <geom class="col" name="LLMujoco_Fix_Ring_col_3_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                                                        <geom class="col" name="LLMujoco_Fix_Ring_col_3_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                                                        <geom class="col" name="LLMujoco_Fix_Ring_col_3_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                                                        <geom class="col" name="LLMujoco_Fix_Ring_col_3_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                                                        <joint name="LLsec_3_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                        <joint name="LLsec_3_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                        <joint name="LLsec_3_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
+                                                        <site name="LLlayer04" pos="0 -0.03 0.005 "/>
+                                                        <site name="LLlayer14" pos="0.025981 0.015 0.005 "/>
+                                                        <site name="LLlayer24" pos="-0.025981 0.015 0.005 "/>
+                                                        <body name='LLsec_4' pos= '0 0 0.0484' euler='0 0 0'>
+                                                            <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                                                            <geom class="col" name="LLMujoco_Fix_Ring_col_4_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                                                            <geom class="col" name="LLMujoco_Fix_Ring_col_4_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                                                            <geom class="col" name="LLMujoco_Fix_Ring_col_4_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                                                            <geom class="col" name="LLMujoco_Fix_Ring_col_4_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                                                            <joint name="LLsec_4_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                            <joint name="LLsec_4_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                            <joint name="LLsec_4_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
+                                                            <site name="LLlayer05" pos="0 -0.03 0.005 "/>
+                                                            <site name="LLlayer15" pos="0.025981 0.015 0.005 "/>
+                                                            <site name="LLlayer25" pos="-0.025981 0.015 0.005 "/>
+                                                            <body name='LLsec_5' pos= '0 0 0.0484' euler='0 0 0'>
+                                                                <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                                                                <geom class="col" name="LLMujoco_Fix_Ring_col_5_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                                                                <geom class="col" name="LLMujoco_Fix_Ring_col_5_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                                                                <geom class="col" name="LLMujoco_Fix_Ring_col_5_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                                                                <geom class="col" name="LLMujoco_Fix_Ring_col_5_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                                                                <joint name="LLsec_5_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242" limited="true" range="-50 50"/>
+                                                                <joint name="LLsec_5_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242" limited="true" range="-50 50"/>
+                                                                <joint name="LLsec_5_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242" limited="true" range="-0.023 0.001" />
+                                                                <site name="LLlayer06" pos="0 -0.03 0.005 "/>
+                                                                <site name="LLlayer16" pos="0.025981 0.015 0.005 "/>
+                                                                <site name="LLlayer26" pos="-0.025981 0.015 0.005 "/>
+                                                                <body name='LLsec_6' pos= '0 0 0.0484' euler='0 0 0'>
+                                                                    <inertial pos="0.00 0.00 0.0045" quat="1 0 0 0" mass="0.036" diaginertia="2.092e-6 2.092e-6 4.135e-6"/>
+                                                                    <geom class="col" name="LLCap_1" type="cylinder" size="0.02 0.004" pos="0 -0.03 0.004 "/>
+                                                                    <geom class="col" name="LLCap_2" type="cylinder" size="0.02 0.004" pos="0.025981 0.015 0.004 "/>
+                                                                    <geom class="col" name="LLCap_3" type="cylinder" size="0.02 0.004" pos="-0.025981 0.015 0.004 "/>
+                                                                    <joint name="LLsec_6_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                                    <joint name="LLsec_6_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                                    <joint name="LLsec_6_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.010 0.001" />
+                                                                    <site name="LLlayer07" pos="0 -0.03 0 "/>
+                                                                    <site name="LLlayer17" pos="0.025981 0.015 0 "/>
+                                                                    <site name="LLlayer27" pos="-0.025981 0.015 0 "/>
+                                                                    <body name="LLmount" pos= '0 0 0.008' euler='180 0 0 '>
+                                                                        <body name='LLLlayer_core'>
+                                                                            <inertial pos="0.00 0.00 -0.047" quat="1 0 0 0" mass="0.452" diaginertia="6.975e-4 6.975e-4 5.153e-4"/>
+                                                                            <geom class="col" name="LLLMujoco_end_col_1" type="cylinder" size="0.0225 0.0451" pos="0 0.03 -0.0451"/>
+                                                                            <geom class="col" name="LLLMujoco_end_col_2" type="cylinder" size="0.0225 0.0451" pos="0.025981 -0.015 -0.0451"/>
+                                                                            <geom class="col" name="LLLMujoco_end_col_3" type="cylinder" size="0.0225 0.0451" pos="-0.025981 -0.015 -0.0451"/>
+                                                                            <site name="LLLimu_site_01" pos="0 0.03 -0.0402 "/>
+                                                                            <site name="LLLimu_site_02" pos="0.025981 -0.015 -0.0402 "/>
+                                                                            <site name="LLLimu_site_03" pos="-0.025981 -0.015 -0.0402 "/>
+                                                                            <site name="LLLlayer01" pos="0 0.03 -0.0902 "/>
+                                                                            <site name="LLLlayer11" pos="0.025981 -0.015 -0.0902 "/>
+                                                                            <site name="LLLlayer21" pos="-0.025981 -0.015 -0.0902 "/>
+                                                                            <body name='LLLsec_1' pos= '0 0 -0.1386' euler='180 0 0'>
+                                                                                <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                                                                                <geom class="col" name="LLLMujoco_Fix_Ring_col_1_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                                                                                <geom class="col" name="LLLMujoco_Fix_Ring_col_1_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                                                                                <geom class="col" name="LLLMujoco_Fix_Ring_col_1_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                                                                                <geom class="col" name="LLLMujoco_Fix_Ring_col_1_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                                                                                <joint name="LLLsec_1_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                                                <joint name="LLLsec_1_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                                                <joint name="LLLsec_1_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
+                                                                                <site name="LLLlayer02" pos="0 -0.03 0.005 "/>
+                                                                                <site name="LLLlayer12" pos="0.025981 0.015 0.005 "/>
+                                                                                <site name="LLLlayer22" pos="-0.025981 0.015 0.005 "/>
+                                                                                <body name='LLLsec_2' pos= '0 0 0.0484' euler='0 0 0'>
+                                                                                    <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                                                                                    <geom class="col" name="LLLMujoco_Fix_Ring_col_2_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                                                                                    <geom class="col" name="LLLMujoco_Fix_Ring_col_2_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                                                                                    <geom class="col" name="LLLMujoco_Fix_Ring_col_2_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                                                                                    <geom class="col" name="LLLMujoco_Fix_Ring_col_2_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                                                                                    <joint name="LLLsec_2_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                                                    <joint name="LLLsec_2_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                                                    <joint name="LLLsec_2_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
+                                                                                    <site name="LLLlayer03" pos="0 -0.03 0.005 "/>
+                                                                                    <site name="LLLlayer13" pos="0.025981 0.015 0.005 "/>
+                                                                                    <site name="LLLlayer23" pos="-0.025981 0.015 0.005 "/>
+                                                                                    <body name='LLLsec_3' pos= '0 0 0.0484' euler='0 0 0'>
+                                                                                        <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                                                                                        <geom class="col" name="LLLMujoco_Fix_Ring_col_3_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                                                                                        <geom class="col" name="LLLMujoco_Fix_Ring_col_3_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                                                                                        <geom class="col" name="LLLMujoco_Fix_Ring_col_3_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                                                                                        <geom class="col" name="LLLMujoco_Fix_Ring_col_3_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                                                                                        <joint name="LLLsec_3_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                                                        <joint name="LLLsec_3_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                                                        <joint name="LLLsec_3_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
+                                                                                        <site name="LLLlayer04" pos="0 -0.03 0.005 "/>
+                                                                                        <site name="LLLlayer14" pos="0.025981 0.015 0.005 "/>
+                                                                                        <site name="LLLlayer24" pos="-0.025981 0.015 0.005 "/>
+                                                                                        <body name='LLLsec_4' pos= '0 0 0.0484' euler='0 0 0'>
+                                                                                            <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                                                                                            <geom class="col" name="LLLMujoco_Fix_Ring_col_4_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                                                                                            <geom class="col" name="LLLMujoco_Fix_Ring_col_4_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                                                                                            <geom class="col" name="LLLMujoco_Fix_Ring_col_4_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                                                                                            <geom class="col" name="LLLMujoco_Fix_Ring_col_4_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                                                                                            <joint name="LLLsec_4_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                                                            <joint name="LLLsec_4_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                                                            <joint name="LLLsec_4_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.023 0.001" />
+                                                                                            <site name="LLLlayer05" pos="0 -0.03 0.005 "/>
+                                                                                            <site name="LLLlayer15" pos="0.025981 0.015 0.005 "/>
+                                                                                            <site name="LLLlayer25" pos="-0.025981 0.015 0.005 "/>
+                                                                                            <body name='LLLsec_5' pos= '0 0 0.0484' euler='0 0 0'>
+                                                                                                <inertial pos="0.00 0.00 0.0025" quat="1 0 0 0" mass="0.012" diaginertia="4.867e-6 4.867e-6 9.673e-6"/>
+                                                                                                <geom class="col" name="LLLMujoco_Fix_Ring_col_5_1" type="cylinder" size="0.02 0.0025" pos="0 -0.03 0.0025 "/>
+                                                                                                <geom class="col" name="LLLMujoco_Fix_Ring_col_5_2" type="cylinder" size="0.02 0.0025" pos="0.025981 0.015 0.0025 "/>
+                                                                                                <geom class="col" name="LLLMujoco_Fix_Ring_col_5_3" type="cylinder" size="0.02 0.0025" pos="-0.025981 0.015 0.0025 "/>
+                                                                                                <geom class="col" name="LLLMujoco_Fix_Ring_col_5_4" type="cylinder" size="0.01 0.0025" pos="0 0 0.0025 "/>
+                                                                                                <joint name="LLLsec_5_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242" limited="true" range="-50 50"/>
+                                                                                                <joint name="LLLsec_5_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242" limited="true" range="-50 50"/>
+                                                                                                <joint name="LLLsec_5_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242" limited="true" range="-0.023 0.001" />
+                                                                                                <site name="LLLlayer06" pos="0 -0.03 0.005 "/>
+                                                                                                <site name="LLLlayer16" pos="0.025981 0.015 0.005 "/>
+                                                                                                <site name="LLLlayer26" pos="-0.025981 0.015 0.005 "/>
+                                                                                                <body name='LLLsec_6' pos= '0 0 0.0484' euler='0 0 0'>
+                                                                                                    <inertial pos="0.00 0.00 0.0045" quat="1 0 0 0" mass="0.036" diaginertia="2.092e-6 2.092e-6 4.135e-6"/>
+                                                                                                    <geom class="col" name="LLLCap_1" type="cylinder" size="0.02 0.004" pos="0 -0.03 0.004 "/>
+                                                                                                    <geom class="col" name="LLLCap_2" type="cylinder" size="0.02 0.004" pos="0.025981 0.015 0.004 "/>
+                                                                                                    <geom class="col" name="LLLCap_3" type="cylinder" size="0.02 0.004" pos="-0.025981 0.015 0.004 "/>
+                                                                                                    <joint name="LLLsec_6_joint_x" class="hingeB" type="hinge" axis="1 0 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                                                                    <joint name="LLLsec_6_joint_y" class="hingeB" type="hinge" axis="0 1 0" pos="0 0 -0.0242  " limited="true" range="-50 50"/>
+                                                                                                    <joint name="LLLsec_6_joint_z" class='secZ' type="slide" axis="0 0 1" pos="0 0 -0.0242  " limited="true" range="-0.010 0.001" />
+                                                                                                    <site name="LLLlayer07" pos="0 -0.03 0 "/>
+                                                                                                    <site name="LLLlayer17" pos="0.025981 0.015 0 "/>
+                                                                                                    <site name="LLLlayer27" pos="-0.025981 0.015 0 "/>
+                                                                                                      <body name="LLLmount" pos= '0 0 0.008' euler='180 0 0 '>
+                                                                                                        <site name="LLLend_effector" pos="0 0 0 "/>
+                                                                                                    </body>
+                                                                                                </body>
+                                                                                            </body>
+                                                                                        </body>
+                                                                                    </body>
+                                                                                </body>
+                                                                            </body>
+                                                                        </body>
+                                                                    </body>
+                                                                </body>
+                                                            </body>
+                                                        </body>
+                                                    </body>
+                                                </body>
+                                            </body>
+                                        </body>
+                                    </body>
+                                </body>
+                            </body>
+                        </body>
+                    </body>
+                </body>
+            </body>
+        </body>
+  </worldbody>
+  <tendon >
+        <spatial name="Llayer00" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
+            <site site="Llayer01"/>
+            <site site="Llayer02"/>
+            <site site="Llayer03"/>
+            <site site="Llayer04"/>
+            <site site="Llayer05"/>
+            <site site="Llayer06"/>
+            <site site="Llayer07"/>
+        </spatial>
+        <spatial name="Llayer01" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
+            <site site="Llayer11"/>
+            <site site="Llayer12"/>
+            <site site="Llayer13"/>
+            <site site="Llayer14"/>
+            <site site="Llayer15"/>
+            <site site="Llayer16"/>
+            <site site="Llayer17"/>
+        </spatial>
+        <spatial name="Llayer02" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
+            <site site="Llayer21"/>
+            <site site="Llayer22"/>
+            <site site="Llayer23"/>
+            <site site="Llayer24"/>
+            <site site="Llayer25"/>
+            <site site="Llayer26"/>
+            <site site="Llayer27"/>
+        </spatial>
+        <spatial name="LLlayer00" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
+            <site site="LLlayer01"/>
+            <site site="LLlayer02"/>
+            <site site="LLlayer03"/>
+            <site site="LLlayer04"/>
+            <site site="LLlayer05"/>
+            <site site="LLlayer06"/>
+            <site site="LLlayer07"/>
+        </spatial>
+        <spatial name="LLlayer01" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
+            <site site="LLlayer11"/>
+            <site site="LLlayer12"/>
+            <site site="LLlayer13"/>
+            <site site="LLlayer14"/>
+            <site site="LLlayer15"/>
+            <site site="LLlayer16"/>
+            <site site="LLlayer17"/>
+        </spatial>
+        <spatial name="LLlayer02" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
+            <site site="LLlayer21"/>
+            <site site="LLlayer22"/>
+            <site site="LLlayer23"/>
+            <site site="LLlayer24"/>
+            <site site="LLlayer25"/>
+            <site site="LLlayer26"/>
+            <site site="LLlayer27"/>
+        </spatial>
+        <spatial name="LLLlayer00" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
+            <site site="LLLlayer01"/>
+            <site site="LLLlayer02"/>
+            <site site="LLLlayer03"/>
+            <site site="LLLlayer04"/>
+            <site site="LLLlayer05"/>
+            <site site="LLLlayer06"/>
+            <site site="LLLlayer07"/>
+        </spatial>
+        <spatial name="LLLlayer01" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
+            <site site="LLLlayer11"/>
+            <site site="LLLlayer12"/>
+            <site site="LLLlayer13"/>
+            <site site="LLLlayer14"/>
+            <site site="LLLlayer15"/>
+            <site site="LLLlayer16"/>
+            <site site="LLLlayer17"/>
+        </spatial>
+        <spatial name="LLLlayer02" range=".15 .33" limited="true" width=".015" rgba="0.55 0.55 0.55 1" stiffness='128' damping= '2'>
+            <site site="LLLlayer21"/>
+            <site site="LLLlayer22"/>
+            <site site="LLLlayer23"/>
+            <site site="LLLlayer24"/>
+            <site site="LLLlayer25"/>
+            <site site="LLLlayer26"/>
+            <site site="LLLlayer27"/>
+        </spatial>
+    </tendon>
+    <equality>
+        <joint joint1="Lsec_1_joint_x" joint2="Lsec_2_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="Lsec_1_joint_y" joint2="Lsec_2_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="Lsec_2_joint_x" joint2="Lsec_3_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="Lsec_2_joint_y" joint2="Lsec_3_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="Lsec_3_joint_x" joint2="Lsec_4_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="Lsec_3_joint_y" joint2="Lsec_4_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="Lsec_4_joint_x" joint2="Lsec_5_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="Lsec_4_joint_y" joint2="Lsec_5_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="Lsec_5_joint_x" joint2="Lsec_6_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="Lsec_5_joint_y" joint2="Lsec_6_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLsec_1_joint_x" joint2="LLsec_2_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLsec_1_joint_y" joint2="LLsec_2_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLsec_2_joint_x" joint2="LLsec_3_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLsec_2_joint_y" joint2="LLsec_3_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLsec_3_joint_x" joint2="LLsec_4_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLsec_3_joint_y" joint2="LLsec_4_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLsec_4_joint_x" joint2="LLsec_5_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLsec_4_joint_y" joint2="LLsec_5_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLsec_5_joint_x" joint2="LLsec_6_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLsec_5_joint_y" joint2="LLsec_6_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLLsec_1_joint_x" joint2="LLLsec_2_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLLsec_1_joint_y" joint2="LLLsec_2_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLLsec_2_joint_x" joint2="LLLsec_3_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLLsec_2_joint_y" joint2="LLLsec_3_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLLsec_3_joint_x" joint2="LLLsec_4_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLLsec_3_joint_y" joint2="LLLsec_4_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLLsec_4_joint_x" joint2="LLLsec_5_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLLsec_4_joint_y" joint2="LLLsec_5_joint_y" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLLsec_5_joint_x" joint2="LLLsec_6_joint_x" polycoef="0 1 0 0 0"/>
+        <joint joint1="LLLsec_5_joint_y" joint2="LLLsec_6_joint_y" polycoef="0 1 0 0 0"/>
+    </equality>
+
+    <sensor>
+        <gyro site="Limu_site_01"/>
+        <accelerometer site="Limu_site_01"/>
+        <gyro site="Limu_site_02"/>
+        <accelerometer site="Limu_site_02"/>
+        <gyro site="Limu_site_03"/>
+        <accelerometer site="Limu_site_03"/>
+        <gyro site="LLimu_site_01"/>
+        <accelerometer site="LLimu_site_01"/>
+        <gyro site="LLimu_site_02"/>
+        <accelerometer site="LLimu_site_02"/>
+        <gyro site="LLimu_site_03"/>
+        <accelerometer site="LLimu_site_03"/>
+        <gyro site="LLLimu_site_01"/>
+        <accelerometer site="LLLimu_site_01"/>
+        <gyro site="LLLimu_site_02"/>
+        <accelerometer site="LLLimu_site_02"/>
+        <gyro site="LLLimu_site_03"/>
+        <accelerometer site="LLLimu_site_03"/>
+    </sensor>
+
+    <actuator>
+        <position name="L_axial_0" tendon="Llayer00" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.25 0.33" />
+        <position name="L_axial_1" tendon="Llayer01" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.25 0.33" />
+        <position name="L_axial_2" tendon="Llayer02" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.25 0.33" />
+        <position name="LL_axial_0" tendon="LLlayer00" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.20 0.33"/>
+        <position name="LL_axial_1" tendon="LLlayer01" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.20 0.33"/>
+        <position name="LL_axial_2" tendon="LLlayer02" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.20 0.33"/>
+        <position name="LLL_axial_0" tendon="LLLlayer00" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.20 0.33"/>
+        <position name="LLL_axial_1" tendon="LLLlayer01" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.20 0.33"/>
+        <position name="LLL_axial_2" tendon="LLLlayer02" kp="10000" kv="50"  ctrllimited="true"  ctrlrange="0.20 0.33"/>
+    </actuator>
+</mujoco>

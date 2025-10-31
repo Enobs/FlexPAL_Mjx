@@ -183,7 +183,7 @@ if __name__ == "__main__":
     # while stop_flag:
     start_time = time.time()
     out_time = 0
-    for i in range(400):
+    for i in range(100):
         check = env.get_current_state()
         if (env.pose_reach == 1):
             env.pose_reach = 0

@@ -1,7 +1,7 @@
 <mujoco model="soft joint scene">
   <!-- Add some fluid viscosity to prevent the hanging box from jiggling forever -->
   <option gravity="0 0 -9.81"/>
-  <option iterations="6" ls_iterations="10" timestep="0.002" integrator="implicitfast" solver='CG'>
+  <option iterations="30" ls_iterations="10" timestep="0.002" integrator="implicitfast">
     <flag eulerdamp="disable"/>
   </option>
   <include file="SoftJoint.xml"/>

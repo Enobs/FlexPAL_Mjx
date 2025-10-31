@@ -129,8 +129,7 @@ class FlexPALEnv(PipelineEnv):
         u_raw  = s.data.ctrl + delta_u
         u_ctrl = jnp.clip(u_raw, -1.0, 1.0)
 
-        s_next, _ = core.inner_step(p, s, u_ctrl, ctrl_param)
-        dT = self.pipeline_step(s.data, s_next.data.ctrl)  
+        dT = self.pipeline_step(s.data, u_ctrl)  
         s_current = s.replace(data=dT, t=s.t + 1)
 
         sd = s_current.data.sensordata
@@ -208,131 +207,52 @@ class FlexPALEnv(PipelineEnv):
         return jnp.concatenate([tendon, imu, self.goal])
 
 
+
 if __name__ == "__main__":
-    #@title Import MuJoCo, MJX, and Brax
-    from datetime import datetime
-    from etils import epath
-    import functools
-    from typing import Any, Dict, Sequence, Tuple, Union
-    import os
-    from ml_collections import config_dict
+    import time
+    import numpy as onp
+    from jax import random, device_get
 
 
-    import jax
-    from jax import numpy as jp
-    import numpy as np
-    from flax.training import orbax_utils
-    from flax import struct
-    from matplotlib import pyplot as plt
-    # import mediapy as media
-    from orbax import checkpoint as ocp
+    control_freq = 25.0
+    kp, ki = 2.0, 0.3
+    tol = 1e-3
+    max_inner_steps = 400
 
-    import mujoco
-    from mujoco import mjx
-
-    from brax import base
-    from brax import envs
-    from brax import math
-    from brax.base import Base, Motion, Transform
-    from brax.base import State as PipelineState
-    from brax.envs.base import Env, PipelineEnv, State
-    from brax.mjx.base import State as MjxState
-    from brax.training.agents.ppo import train as ppo
-    from brax.training.agents.ppo import networks as ppo_networks
-    from brax.io import html, mjcf, model
+    env = FlexPALEnv(
+        control_freq=control_freq,
+        kp=kp,
+        ki=ki,
+        tol=tol,
+        max_inner_steps=max_inner_steps,
+    )
 
 
-    envs.register_environment('FlexPALEnv', FlexPALEnv)
-    env_name = 'FlexPALEnv'
-    env = envs.get_environment(env_name)
+    t0 = time.perf_counter()
+    key = random.PRNGKey(0)
+    state = env.reset(key)
+    action = jnp.array([0.30562606, 0.28558427, 0.28487587, 0.20157896, 0.28575578, 0.21900828, 0.14331605, 0.30143574, 0.33560848], dtype=jnp.float32)
 
-    train_fn = functools.partial(
-        ppo.train, num_timesteps=256, num_evals=5, reward_scaling=1,
-        episode_length=1000, normalize_observations=True, action_repeat=1,
-        unroll_length=1, num_minibatches=24, num_updates_per_batch=8,
-        discounting=0.97, learning_rate=3e-4, entropy_cost=1e-3, num_envs=1,
-        batch_size=1, seed=0)
+    state = env.step(state, action)
+
+    rew = device_get(state.reward)
+    done = device_get(state.done)
+    inner_steps = device_get(state.metrics['inner_steps'])
+    t1 = time.perf_counter()
+    duration = t1 - t0
+
+    print(f"reward={float(rew):.4f}  inner_steps={int(inner_steps)}  done={float(done):.0f}  ")
+    print(f"Total time taken: {duration:.4f} seconds")
     
-    jit_reset = jax.jit(env.reset)
-    jit_step = jax.jit(env.step)
-    state = jit_reset(jax.random.PRNGKey(0))
-    rollout = [state.pipeline_state]
-
-    x_data = []
-    y_data = []
-    ydataerr = []
-    times = [datetime.now()]
-
-    max_y, min_y = 0, -2
-    def progress(num_steps, metrics):
-        times.append(datetime.now())
-        x_data.append(num_steps)
-        y_data.append(metrics['eval/episode_reward'])
-        ydataerr.append(metrics['eval/episode_reward_std'])
-
-        plt.xlim([0, train_fn.keywords['num_timesteps'] * 1.25])
-        plt.ylim([min_y, max_y])
-
-        plt.xlabel('# environment steps')
-        plt.ylabel('reward per episode')
-        plt.title(f'y={y_data[-1]:.3f}')
-
-        plt.errorbar(
-            x_data, y_data, yerr=ydataerr)
-        plt.show()
-
-    make_inference_fn, params, _= train_fn(environment=env, progress_fn=progress)
-
-    print(f'time to jit: {times[1] - times[0]}')
-    print(f'time to train: {times[-1] - times[1]}')
-        
-        
-    
-# if __name__ == "__main__":
-    # import time
-    # import numpy as onp
-    # from jax import random, device_get
-
-
-    # control_freq = 25.0
-    # kp, ki = 2.0, 0.3
-    # tol = 1e-3
-    # max_inner_steps = 400
-
-    # env = FlexPALEnv(
-    #     control_freq=control_freq,
-    #     kp=kp,
-    #     ki=ki,
-    #     tol=tol,
-    #     max_inner_steps=max_inner_steps,
-    # )
-
-
-    # t0 = time.perf_counter()
-    # key = random.PRNGKey(0)
-    # state = env.reset(key)
-    # action = jnp.array([0.30562606, 0.28558427, 0.28487587, 0.20157896, 0.28575578, 0.21900828, 0.14331605, 0.30143574, 0.33560848], dtype=jnp.float32)
-
-    # state = env.step(state, action)
-
-    # rew = device_get(state.reward)
-    # done = device_get(state.done)
-    # inner_steps = device_get(state.metrics['inner_steps'])
-    # t1 = time.perf_counter()
-    # duration = t1 - t0
-
-    # print(f"reward={float(rew):.4f}  inner_steps={int(inner_steps)}  done={float(done):.0f}  ")
-    # print(f"Total time taken: {duration:.4f} seconds")
-    
-    # t0 = time.perf_counter()
-    # key = random.PRNGKey(0)
-    # state = env.reset(key)
-    # state = env.step(state, action)
-    # rew = device_get(state.reward)
-    # done = device_get(state.done)
-    # inner_steps = device_get(state.metrics['inner_steps'])
-    # t1 = time.perf_counter()
-    # duration = t1 - t0
-    # print(f"reward={float(rew):.4f}  inner_steps={int(inner_steps)}  done={float(done):.0f}  ")
-    # print(f"Total time taken: {duration:.4f} seconds")
+    t0 = time.perf_counter()
+    key = random.PRNGKey(0)
+    state = env.reset(key)
+    state = env.step(state, action)
+    rew = device_get(state.reward)
+    done = device_get(state.done)
+    inner_steps = device_get(state.metrics['inner_steps'])
+    t1 = time.perf_counter()
+    duration = t1 - t0
+    print(f"reward={float(rew):.4f}  inner_steps={int(inner_steps)}  done={float(done):.0f}  ")
+    print(f"Total time taken: {duration:.4f} seconds")
     

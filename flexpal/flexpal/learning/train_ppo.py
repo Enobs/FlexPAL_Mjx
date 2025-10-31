@@ -3,7 +3,7 @@ from jax import random
 from brax.training.agents.ppo import train as ppo_train
 import jax
 
-from flexpal.mujoco.flexpal_env import FlexPALEnv
+from flexpal.flexpal.mujoco.flexpal_env_old import FlexPALEnv
 print("Backend:", jax.default_backend(), "Devices:", jax.devices(), flush=True)
 
 XML_PATH = "/home/yinan/Documents/FlexPAL_Mjx/flexpal/flexpal/model/pickandplace.xml"
