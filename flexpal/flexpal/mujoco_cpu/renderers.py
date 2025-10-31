@@ -1,99 +1,144 @@
 import time
-
-import mujoco
-from collections import deque
 import sys
+from collections import deque
+from typing import Optional
 import numpy as np
-from queue import Queue
-# TODO: separate a script
+import mujoco
+
 try:
     import cv2
-except:
-    print('Could not import cv2, please install it to enable camera viewer.')
+except Exception:
+    cv2 = None
 
 
 class MjRenderer:
-    def __init__(self, mj_model, mj_data, is_render, renderer, enable_camera_viewer=False, cam_mode='rgb'):
-        self.mj_model = mj_model
-        self.mj_data = mj_data
+    """
+    轻量、可复用的 MuJoCo 渲染器：
+    - human: 使用 mujoco.viewer (launch_passive)
+    - rgb_array: 使用 mujoco.Renderer 离屏渲染，返回 np.uint8[H,W,3]
+    - 支持轨迹绘制（轻量 deque）
+    - 不主动 sys.exit；资源在 close() 里释放
+    """
+    def __init__(
+        self,
+        mj_model: mujoco.MjModel,
+        mj_data: mujoco.MjData,
+        mode: Optional[str] = "human",       # "human" | "rgb_array" | None
+        traj_maxlen: int = 10_000,
+        width: int = 960,
+        height: int = 720,
+        camera: Optional[str] = None,        # 命名相机
+    ):
+        self.model = mj_model
+        self.data = mj_data
+        self.mode = mode
+        self.width = int(width)
+        self.height = int(height)
+        self.camera = camera
 
-        self.renderer = renderer
-        self.enable_camera_viewer = enable_camera_viewer
-        self.cam_mode = cam_mode
+        self.viewer = None                   # human
+        self.offscreen = None                # rgb_array
+        self.last_rgb = None
 
-        # Set up mujoco viewer
-        self.viewer = None
-        if is_render:
-            self._init_renderer()
-
-        self.traj = deque(maxlen=20000000)
-
-        # keyboard flag
-        self.render_paused = True
+        self.traj = deque(maxlen=traj_maxlen)
+        self.render_paused = False
         self.exit_flag = False
 
-        self._image = None
-        self.image_queue = Queue()
+        if self.mode == "human":
+            self._init_viewer()
+        elif self.mode == "rgb_array":
+            self._init_offscreen()
 
-        self.image_renderer = mujoco.Renderer(self.mj_model)
-
-    def _init_renderer(self):
-        """ Initialize renderer, choose official renderer with "viewer"(joined from version 2.3.3),
-            another renderer with "mujoco_viewer"
-        """
+    # ---------- init ----------
+    def _init_viewer(self):
+        from mujoco import viewer
 
         def key_callback(keycode):
+            # Space: pause / ESC: exit flag
             if keycode == 32:
                 self.render_paused = not self.render_paused
             elif keycode == 256:
-                self.exit_flag = not self.exit_flag
+                self.exit_flag = True
 
-        if self.renderer == "viewer":
-            from mujoco import viewer
-            # This function does not block, allowing user code to continue execution.
-            self.viewer = viewer.launch_passive(
-                self.mj_model, self.mj_data, key_callback=key_callback)
+        # 非阻塞窗口
+        self.viewer = viewer.launch_passive(self.model, self.data, key_callback=key_callback)
 
+    def _init_offscreen(self):
+        # 离屏渲染器
+        self.offscreen = mujoco.Renderer(self.model, self.width, self.height)
+
+    # ---------- lifecycle ----------
+    def update(self, mj_model: mujoco.MjModel, mj_data: mujoco.MjData):
+        """外部在 step 后调用一次，更新指针（避免频繁重建对象）"""
+        self.model = mj_model
+        self.data = mj_data
+
+    def render_human(self):
+        if self.viewer is None:
+            self._init_viewer()
+        # 同步窗口（注意：不要频繁重建 viewer）
+        if self.viewer.is_running() and not self.exit_flag:
+            # 需要改 opt 等用 with self.viewer.lock():
+            self.viewer.sync()
         else:
-            raise ValueError('Invalid renderer name.')
+            # 仅关闭 viewer，不退出进程
+            self.close()
+
+    def render_rgb_array(self):
+        if self.offscreen is None:
+            self._init_offscreen()
+        self.offscreen.update_scene(self.data, camera=self.camera)
+        self.last_rgb = self.offscreen.render()
+        return self.last_rgb
 
     def render(self):
-        """ render mujoco """
-        if self.viewer is not None and self.render_paused is True and self.renderer == "viewer":
-            if self.viewer.is_running() and self.exit_flag is False:
-                self.viewer.sync()
-            else:
-                self.close()
+        if self.mode == "human":
+            # paused 时也让窗口刷新（只是你可选择不推进物理）
+            self.render_human()
+            return None
+        elif self.mode == "rgb_array":
+            return self.render_rgb_array()
+        return None
 
-    def close(self):
-        """ close the environment. """
-        if self.enable_camera_viewer:
-            cv2.destroyAllWindows()
-        self.viewer.close()
-        sys.exit(0)
+    # ---------- trajectory ----------
+    def add_traj_point(self, pos: np.ndarray, every_n: int = 10):
+        """可选：按一定频率添加轨迹点（pos: (3,) world 坐标）"""
+        if len(self.traj) == 0 or (self.data.time % every_n) < 1e-6:
+            self.traj.append(np.asarray(pos, dtype=float).copy())
 
-    def set_renderer_config(self):
-        """ Setup mujoco global config while using viewer as renderer.
-            It should be noted that the render thread need locked.
-        """
+    def draw_traj(self):
+        """仅在 human 模式下绘制一些球点到 user_scn"""
+        if self.mode != "human" or self.viewer is None:
+            return
         with self.viewer.lock():
-            self.viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = int(
-                self.mj_data.time % 2)
-
-    def render_traj(self, pos, cur_time):
-        """ Render the trajectory from deque above,
-            you can push the cartesian position into this deque.
-
-        :param pos: One of the cartesian position of the trajectory to render.
-        """
-        if self.renderer == "viewer":
-            if cur_time % 10 == 0:
-                self.traj.append(pos.copy())
             self.viewer.user_scn.ngeom = 0
-            i = 0
-            for point in self.traj:
-                mujoco.mjv_initGeom(self.viewer.user_scn.geoms[i], type=mujoco.mjtGeom.mjGEOM_SPHERE, size=np.array(
-                    [0.003, 0.003, 0.003]), pos=point, mat=np.eye(3).flatten(), rgba=np.array([1, 0, 0, 1]))
-                i += 1
-            self.viewer.user_scn.ngeom = i
-            self.viewer.sync()
+            for i, point in enumerate(self.traj):
+                if i >= len(self.viewer.user_scn.geoms):
+                    break
+                mujoco.mjv_initGeom(
+                    self.viewer.user_scn.geoms[i],
+                    type=mujoco.mjtGeom.mjGEOM_SPHERE,
+                    size=np.array([0.003, 0.003, 0.003]),
+                    pos=point,
+                    mat=np.eye(3).ravel(),
+                    rgba=np.array([1.0, 0.0, 0.0, 1.0]),
+                )
+            self.viewer.user_scn.ngeom = min(len(self.traj), len(self.viewer.user_scn.geoms))
+
+    # ---------- close ----------
+    def close(self):
+        try:
+            if self.offscreen is not None:
+                self.offscreen.close()
+        except Exception:
+            pass
+        self.offscreen = None
+
+        try:
+            if self.viewer is not None:
+                # 避免在关闭窗口后继续 sync
+                self.exit_flag = True
+                self.viewer.close()
+        except Exception:
+            pass
+        self.viewer = None

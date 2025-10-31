@@ -18,8 +18,8 @@ state = jit_reset(jax.random.PRNGKey(0))
 act   = jax.random.uniform(jax.random.PRNGKey(1), (env.action_size,), minval=-1., maxval=1.)
 state = jit_step(state, act)
 
-NUM_ENVS      = 192
-UNROLL_LENGTH = 2
+NUM_ENVS      = 256
+UNROLL_LENGTH = 16
 BATCH_SIZE    = NUM_ENVS * UNROLL_LENGTH     
 NUM_MINIBATCH = 32                          
 
@@ -44,26 +44,47 @@ train_fn = functools.partial(
 
 import time
 from datetime import datetime
-last = {"t": time.time(), "steps": 0, "t0": time.time()}
+
+    
+start = {"t0": None, "t_prev": None, "s_prev": 0}
 
 def progress_fn(step, metrics):
-    reward_mean = metrics.get('eval/episode_reward', None)
-    reward_std  = metrics.get('eval/episode_reward_std', None)
-    ep_len_mean = metrics.get('eval/avg_episode_length', None)
-    sps         = metrics.get('eval/sps', None)
-    walltime    = metrics.get('eval/walltime', None)
+    now = time.time()
+    if start["t0"] is None:
+        start["t0"] = now
+        start["t_prev"] = now
+        start["s_prev"] = 0
 
-    def fmt(x, n=3):
-        return f"{x:.{n}f}" if x is not None else "—"
+    reward_mean = metrics.get('eval/episode_reward')
+    reward_std  = metrics.get('eval/episode_reward_std')
+    ep_len_mean = metrics.get('eval/avg_episode_length')
+    eval_sps    = metrics.get('eval/sps')
+    eval_time   = metrics.get('eval/walltime')  
+
+    total_elapsed = now - start["t0"]              
+    delta_t       = now - start["t_prev"]
+    delta_s       = step - start["s_prev"]
+    inst_sps      = (delta_s / delta_t) if delta_t > 0 else None
+    avg_sps       = (step / total_elapsed) if total_elapsed > 0 else None
+
+    def fmt(x, n=1):  return f"{x:.{n}f}" if x is not None else "—"
+    def fmt3(x):      return f"{x:.3f}" if x is not None else "—"
 
     print(
         f"[{datetime.now().strftime('%H:%M:%S')}] "
         f"[{step:>10}] "
-        f"SPS={fmt(sps)} | "
+        f"eval_sps={fmt(eval_sps,1)} | "
+        f"eval_time={fmt(eval_time,1)}s | "
+        f"reward={fmt3(reward_mean)}±{fmt3(reward_std)} | "
         f"len={fmt(ep_len_mean,1)} | "
-        f"reward={fmt(reward_mean,3)}±{fmt(reward_std,3)} | "
-        f"time={fmt(walltime,1)} s"
+        f"train_time_total={fmt(total_elapsed,1)}s | "
+        f"SPS_inst={fmt(inst_sps,0)} | "
+        f"SPS_avg={fmt(avg_sps,0)}"
     )
+
+    # 更新缓存
+    start["t_prev"] = now
+    start["s_prev"] = step
 
 
 make_inference_fn, params, _ = train_fn(environment=env, progress_fn=progress_fn)
