@@ -23,8 +23,8 @@ def quat_geodesic_angle_np(q1: np.ndarray, q2: np.ndarray, eps: float = 1e-8) ->
 def reaching_reward_np(
     data: mujoco.MjData,
     model: mujoco.MjModel,
-    goal_pos: np.ndarray,        # (3,)
-    goal_quat: np.ndarray,       # (4,) unit
+    goal: np.ndarray,
+    goal_dim: int,        
     tip_site_id: int,
     w_pos: float = 1.0,
     w_ori: float = 0.2,
@@ -40,11 +40,12 @@ def reaching_reward_np(
     ee_quat = sensors.site_quat_world(data, tip_site_id)
     ee_quat = ee_quat / (np.linalg.norm(ee_quat) + 1e-8)
 
-    pos_err = float(np.linalg.norm(ee_pos - goal_pos))
-    if np.isnan(goal_quat).all():
+    pos_err = float(np.linalg.norm(ee_pos - goal[:3]))
+    if goal_dim == 3:
         base_r  = -(w_pos * pos_err)
+        ang_err = 0
     else:
-        ang_err = quat_geodesic_angle_np(ee_quat, goal_quat)
+        ang_err = quat_geodesic_angle_np(ee_quat, goal[3:])
         base_r  = -(w_pos * pos_err + w_ori * ang_err)
 
     improve = 0.0
@@ -52,8 +53,9 @@ def reaching_reward_np(
         p0  = sensors.site_pos(prev_data, tip_site_id)
         q0  = sensors.site_quat_world(prev_data, tip_site_id)
         q0  = q0 / (np.linalg.norm(q0) + 1e-8)
-        pos0 = float(np.linalg.norm(p0 - goal_pos))
-        ang0 = quat_geodesic_angle_np(q0, goal_quat)
+        pos0 = float(np.linalg.norm(p0 - goal[:3]))
+        if goal_dim == 7:
+            ang0 = quat_geodesic_angle_np(q0, goal[3:])
         # improve = (pos0 - pos_err) + ang_improve_scale * (ang0 - ang_err)
 
     def _sigmoid_stable(z: float) -> float:
@@ -105,6 +107,7 @@ class FlexPALSB3Env(gym.Env):
         render_camera: Optional[str] = None,
         step_penalty: float = 0.01,   
         use_time_scale: bool = False, 
+        pos_only_ctrl = True,
     ):
         super().__init__()
         self.model = mujoco.MjModel.from_xml_path(xml_path)
@@ -156,20 +159,25 @@ class FlexPALSB3Env(gym.Env):
         self.step_penalty = float(step_penalty)
         self.use_time_scale = bool(use_time_scale)
 
-        # goal: [pos(3), quat(4)]
-        g = np.array([-0.201, 0.149, 0.840, 0.657, 0.242, 0.683, 0.204], dtype=np.float32)
-        g[3:] /= (np.linalg.norm(g[3:]) + 1e-8)
-        self.goal = g
+        if pos_only_ctrl: 
+            g = np.array([-0.201, 0.149, 0.840], dtype=np.float32)
+            self.goal = g
+            self.goal_dim = 3
+        else:
+            g = np.array([-0.201, 0.149, 0.840, 0.657, 0.242, 0.683, 0.204], dtype=np.float32)
+            g[3:] /= (np.linalg.norm(g[3:]) + 1e-8)
+            self.goal = g
+            self.goal_dim = 7
 
         # spaces
         imu_len = int(len(self.ids_ten) * 6)
-        obs_dim = len(self.ids_ten) + imu_len + 7
+        obs_dim = len(self.ids_ten) + imu_len + self.goal_dim
         self._imu_len = imu_len
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(self.nu,), dtype=np.float32)
         self.observation_space = spaces.Dict({
             "observation":   spaces.Box(low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32),
-            "achieved_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(7,),    dtype=np.float32),
-            "desired_goal":  spaces.Box(low=-np.inf, high=np.inf, shape=(7,),    dtype=np.float32),
+            "achieved_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(self.goal_dim,),    dtype=np.float32),
+            "desired_goal":  spaces.Box(low=-np.inf, high=np.inf, shape=(self.goal_dim,),    dtype=np.float32),
         })
 
         # rendering
@@ -220,20 +228,21 @@ class FlexPALSB3Env(gym.Env):
             sens = np.zeros((self._imu_len,), dtype=np.float32)
         elif sens.size < self._imu_len:
             sens = np.pad(sens, (0, self._imu_len - sens.size))
+
         obsv = np.concatenate([tendon, sens, self.goal]).astype(np.float32)
 
         ee_pos  = sensors.site_pos(self.data, self.tip_sid).astype(np.float32)
         ee_quat = sensors.site_quat_world(self.data, self.tip_sid).astype(np.float32)
-        ee_quat /= (np.linalg.norm(ee_quat) + 1e-8)
 
-        goal_pos  = self.goal[:3].astype(np.float32)
-        goal_quat = self.goal[3:].astype(np.float32)
-        goal_quat /= (np.linalg.norm(goal_quat) + 1e-8)
-
-        achieved = np.concatenate([ee_pos, ee_quat])
-        desired  = np.concatenate([goal_pos, goal_quat])
+        if self.goal_dim == 7:
+            achieved = np.concatenate([ee_pos, ee_quat]).astype(np.float32)     # 7
+            desired  = self.goal.astype(np.float32)                              # 7
+        else:
+            achieved = ee_pos.astype(np.float32)                                 # 3
+            desired  = self.goal.astype(np.float32)                              # 3
 
         return {"observation": obsv, "achieved_goal": achieved, "desired_goal": desired}
+
 
     # ---------- Gym API ----------
     def reset(self, *, seed: Optional[int] = None, options: Optional[dict] = None):
@@ -242,8 +251,8 @@ class FlexPALSB3Env(gym.Env):
         self._success_streak = 0
         self._timestep = 0
         self._set_ctrl(np.ones(self.nu, dtype=np.float32) * 0.29)
+        self.l0 = self.data.ctrl[:self.nu].copy()
         self._step_physics()
-        self.l0 = sensors.tendon_length(self.ids_ten)   # <--- 新增
         if self._renderer is not None:
             self._renderer.update(self.model, self.data)
             if self.render_mode == "rgb_array":
@@ -285,7 +294,7 @@ class FlexPALSB3Env(gym.Env):
         self._step_physics()
 
         r_shape, pos_err, ang_err, soft_succ = reaching_reward_np(
-            self.data, self.model, self.goal[:3], self.goal[3:], self.tip_sid,
+            self.data, self.model, self.goal, self.goal_dim, self.tip_sid,
             w_pos=self.w_pos, w_ori=self.w_ori,
             prev_data=prev_snapshot, tol_pos=self.tol_pos, tol_ang=self.tol_ang,
             w_improve=0.5, w_soft=0.5, ang_improve_scale=0.3
@@ -298,8 +307,11 @@ class FlexPALSB3Env(gym.Env):
             reward -= self.step_penalty * self.control_period
         else:
             reward -= self.step_penalty
-
-        ok = (pos_err < self.tol_pos) and (ang_err < self.tol_ang)
+            
+        if self.goal_dim ==3:
+            ok = (pos_err < self.tol_pos)
+        else:
+            ok = (pos_err < self.tol_pos) and (ang_err < self.tol_ang)
         self._success_streak = self._success_streak + 1 if ok else 0
         terminated = bool(self._success_streak >= self.hold_steps)
         if terminated:
@@ -346,13 +358,18 @@ class FlexPALSB3Env(gym.Env):
     def set_goal(self, x_goal: np.ndarray):
         x_goal = np.asarray(x_goal, dtype=float)
         if x_goal.shape[0] == 3:
-            self.x_goal = np.empty(7, dtype=float)
-            self.x_goal[:3] = x_goal
-            self.x_goal[3:] = np.nan         
+            g = np.empty(3, dtype=float)
+            g[:3] = x_goal
+            self.goal = g
         elif x_goal.shape[0] == 7:
-            self.x_goal = x_goal.copy()
+            g = x_goal.copy()
+            if not np.isnan(g[3:]).all():
+                q = g[3:]
+                g[3:] = q / (np.linalg.norm(q) + 1e-8)
+            self.goal = g
         else:
             raise ValueError("x_goal must be shape (3,) or (7,)")
+
 
     def get_start_lengths(self) -> np.ndarray:
         return self.l0.copy()   
@@ -365,11 +382,16 @@ class FlexPALSB3Env(gym.Env):
     def get_ee_pos(self, id = None)-> np.ndarray:
         return sensors.site_pos(self.data, self.tip_sid).astype(np.float32)
     
-    def get_lengths(self) -> np.ndarray:              
-        return sensors.tendon_state(self.data, self.ids_ten).astype(np.float32)
-        
-    def set_length(self, ctrl_vec: np.ndarray)-> np.ndarray:
-        return self._set_ctrl(ctrl_vec)
+    def get_lengths(self) -> np.ndarray:
+        return self.data.ctrl[:self.nu].astype(np.float32)
+
+    def set_lengths(self, l: np.ndarray):
+        l = np.asarray(l, dtype=np.float32)
+        l = np.clip(l, self.L_min, self.L_max)
+        self._set_ctrl(l)
+
+    def set_length(self, ctrl_vec: np.ndarray):
+        self.set_lengths(ctrl_vec)
     
     def get_l_bounds(self) -> Tuple[np.ndarray, np.ndarray]:
         return self.L_min, self.L_max
