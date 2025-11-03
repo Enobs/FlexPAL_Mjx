@@ -65,7 +65,7 @@ class TensorboardCheckpointCallback(BaseCallback):
 def make_env():
     def _init():
         env = gym.make("Gym_softmujoco-v0")
-        env = Monitor(env, os.path.join(LOG_DIR, "monitor"))
+        env = Monitor(env)
         env.reset()
         return env
     return _init
@@ -100,17 +100,18 @@ def train(total_steps: int = int(1e5),
           n_envs: int = 10,
           n_steps: int = 2048,
           batch_size: int = 256,
-          ent_coef: float = 0.0,
+          ent_coef: float = 5e-3,
           gamma: float = 0.99,
           seed: int = 0,
           save_freq: int = 51200,
-          resume: bool = False):
+          resume: bool = False,
+          n_epochs: int = 8):
     """
     PPO 训练主程序
     """
     env = make_vec_envs(n_envs=n_envs, use_subproc=True)
 
-    policy_kwargs = dict(net_arch=[256, 256])  # 你原来 512×6 太大易不稳；PPO 默认 256×2 常用
+    policy_kwargs = dict(net_arch=[128, 128])  # 你原来 512×6 太大易不稳；PPO 默认 256×2 常用
     model: PPO
 
     # 断点续训（如果需要）
@@ -130,7 +131,10 @@ def train(total_steps: int = int(1e5),
                 batch_size=batch_size,
                 ent_coef=ent_coef,
                 gamma=gamma,
-                n_epochs=10,
+                learning_rate = 1e-4,
+                target_kl=0.02,          
+                max_grad_norm=0.3,
+                n_epochs=n_epochs,
                 gae_lambda=0.95,
                 tensorboard_log=TB_DIR,
                 seed=seed,
@@ -146,7 +150,10 @@ def train(total_steps: int = int(1e5),
             batch_size=batch_size,
             ent_coef=ent_coef,
             gamma=gamma,
-            n_epochs=10,
+            learning_rate = 1e-4,
+            target_kl=0.02,          
+            max_grad_norm=0.3,
+            n_epochs=n_epochs,
             gae_lambda=0.95,
             tensorboard_log=TB_DIR,
             seed=seed,
@@ -188,9 +195,7 @@ def train(total_steps: int = int(1e5),
 
 # ========= 测试 =========
 def test_model(model_path: Optional[str] = None, deterministic: bool = True, episodes: int = 5):
-    """
-    加载模型并在单环境上跑若干步；你的 env 若需要 dict obs，这里保持一致。
-    """
+
     env = gym.make("Gym_softmujoco-v0")
     if model_path is None:
         model_path = latest_model_path(MODEL_PREFIX, ".")
@@ -214,17 +219,16 @@ def test_model(model_path: Optional[str] = None, deterministic: bool = True, epi
 
 # ========= 入口 =========
 if __name__ == "__main__":
-    # 示例：训练 1e5 步（总步数，所有并行 env 之和）
-    train(
-        total_steps=int(1e8),
-        n_envs=16,
-        n_steps=64,
-        batch_size=1024,
-        ent_coef=0.0,
-        gamma=0.99,
-        seed=0,
-        save_freq=51200,
-        resume=False,    
-    )
-    # 示例：测试最近一次保存
-    # test_model()
+    # train(
+    #     total_steps=int(1e7),
+    #     n_envs=128,
+    #     n_steps=128,
+    #     batch_size=1024,
+    #     gamma=0.96,
+    #     ent_coef = 1e-3,
+    #     seed=0,
+    #     save_freq=51200,
+    #     resume=False,    
+    #     n_epochs=8,
+    # )
+    test_model("/home/yinan/Documents/FlexPAL_Mjx/PPO_SOFT_ROBOT_new")

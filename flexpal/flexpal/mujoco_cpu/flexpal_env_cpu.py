@@ -53,24 +53,21 @@ def reaching_reward_np(
         q0  = q0 / (np.linalg.norm(q0) + 1e-8)
         pos0 = float(np.linalg.norm(p0 - goal_pos))
         ang0 = quat_geodesic_angle_np(q0, goal_quat)
-        improve = (pos0 - pos_err) + ang_improve_scale * (ang0 - ang_err)
+        # improve = (pos0 - pos_err) + ang_improve_scale * (ang0 - ang_err)
 
-    def _sigmoid_stable(z: np.ndarray | float) -> float:
-        # 数值稳定：z>=0 用 1/(1+exp(-z)); z<0 用 exp(z)/(1+exp(z))
-        z = float(z)
+    def _sigmoid_stable(z: float) -> float:
+        # 数值稳定 sigmoid
         if z >= 0:
             return 1.0 / (1.0 + np.exp(-z))
-        else:
-            ez = np.exp(z)
-            return ez / (1.0 + ez)
+        ez = np.exp(z)
+        return ez / (1.0 + ez)
 
     def smooth_success(e, tol):
-        # e>=0；当 e >> tol 时，x 很负，使用稳定 sigmoid 避免溢出
         x = (tol - e) / (tol + 1e-6)
-        z = 6.0 * x
-        return _sigmoid_stable(z)
+        return _sigmoid_stable(6.0 * x)
 
-    soft = 0.7 * smooth_success(pos_err, tol_pos) + 0.3 * smooth_success(ang_err, tol_ang)
+    # soft = 0.7 * smooth_success(pos_err, tol_pos) + 0.3 * smooth_success(ang_err, tol_ang)
+    soft = 0
     reward = float(np.clip(base_r + w_improve * improve + w_soft * soft, -clip_range, clip_range))
     return reward, pos_err, ang_err, soft
 
@@ -90,8 +87,8 @@ class FlexPALSB3Env(gym.Env):
         self,
         xml_path: str,
         control_freq: float = 250.0,
-        tol_pos: float = 5e-3,
-        tol_ang: float = 5e-2,
+        tol_pos: float = 1e-2,
+        tol_ang: float = 1e-1,
         hold_steps: int = 3,
         alpha_smooth: float = 0.0,
         action_mode: str = "absolute",
@@ -99,13 +96,16 @@ class FlexPALSB3Env(gym.Env):
         w_pos: float = 1.0,
         w_ori: float = 0.2,
         w_du: float = 1e-2,
-        r_bonus: float = 1.0,
-        K_substeps: int = 10,                # 与你 JAX 版默认对齐
-        max_episode_steps: int = 100,       # 用来产生 truncated=True
-        render_mode: Optional[str] = None,   # "human" | "rgb_array" | None
+        r_bonus: float = 8.0,
+        K_substeps: int = 10,
+        max_episode_steps: int = 100,
+        render_mode: Optional[str] = None,
         render_width: int = 960,
         render_height: int = 720,
         render_camera: Optional[str] = None,
+        # 新增：每步惩罚配置
+        step_penalty: float = 0.01,   # 每步扣多少
+        use_time_scale: bool = False, # True=按秒扣，False=按步扣
     ):
         super().__init__()
         self.model = mujoco.MjModel.from_xml_path(xml_path)
@@ -118,15 +118,16 @@ class FlexPALSB3Env(gym.Env):
         self.cids, self.ids = idbuild.build_ids(
             self.model, sites=site_names, tendons=ten_names, actuators=act_names
         )
-        self.ids_act  = self.ids.actuator   # np.int32[nu]
+        self.ids_act  = self.ids.actuator
         self.ids_ten  = self.ids.tendon
         self.ids_site = self.ids.site
         self.tip_sid  = int(self.ids_site[-1])
 
         # control discretization
-        model_dt     = float(self.model.opt.timestep)
+        model_dt      = float(self.model.opt.timestep)
         self.n_frames = max(1, int(round((1.0 / control_freq) / model_dt)))
         self.K_substeps = int(K_substeps)
+        self.control_period = self.n_frames * model_dt  # 每个 env.step() 对应的秒数
 
         # ranges / sizes
         ctrl_rng      = self.model.actuator_ctrlrange.astype(np.float32)
@@ -134,7 +135,7 @@ class FlexPALSB3Env(gym.Env):
         self.ctrl_max = ctrl_rng[:, 1]
         self.L_min    = self.ctrl_min.copy()
         self.L_max    = self.ctrl_max.copy()
-        self.nu       = int(self.model.nu)  # 动作维度 = actuator 数量
+        self.nu       = int(self.model.nu)
 
         # action mode
         self.action_mode = str(action_mode).lower()
@@ -152,13 +153,17 @@ class FlexPALSB3Env(gym.Env):
         self.r_bonus = float(r_bonus)
         self.max_episode_steps = int(max_episode_steps)
 
+        # step penalty
+        self.step_penalty = float(step_penalty)
+        self.use_time_scale = bool(use_time_scale)
+
         # goal: [pos(3), quat(4)]
         g = np.array([-0.201, 0.149, 0.840, 0.657, 0.242, 0.683, 0.204], dtype=np.float32)
         g[3:] /= (np.linalg.norm(g[3:]) + 1e-8)
         self.goal = g
 
         # spaces
-        imu_len = int(len(self.ids_ten) * 6)  # 你原逻辑：nt*6；如需与模型一致可改
+        imu_len = int(len(self.ids_ten) * 6)
         obs_dim = len(self.ids_ten) + imu_len + 7
         self._imu_len = imu_len
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(self.nu,), dtype=np.float32)
@@ -291,6 +296,12 @@ class FlexPALSB3Env(gym.Env):
         du_pen = float(np.mean((u_new - L_prev) ** 2))
         reward = r_shape - self.w_du * du_pen
 
+        # ---- 每步惩罚：按步或按秒 ----
+        if self.use_time_scale:
+            reward -= self.step_penalty * self.control_period
+        else:
+            reward -= self.step_penalty
+
         ok = (pos_err < self.tol_pos) and (ang_err < self.tol_ang)
         self._success_streak = self._success_streak + 1 if ok else 0
         terminated = bool(self._success_streak >= self.hold_steps)
@@ -345,6 +356,7 @@ class FlexPALSB3Env(gym.Env):
         self._renderer = None
 
 
+
 if __name__ == "__main__":
     env = FlexPALSB3Env(
         xml_path="/home/yinan/Documents/FlexPAL_Mjx/flexpal/flexpal/model/pickandplace.xml",
@@ -355,9 +367,11 @@ if __name__ == "__main__":
         max_episode_steps=1000,
     )
     obs, info = env.reset()
-    action = np.array([-1, 1, -1, 1, -1, 1, -1, 1, -1], dtype=np.float32)[:env.nu]
-    for _ in range(100):
+    a = 0
+    action = np.array([-1, 1, -1, 1, -1, 1, -0.95, 1, -1], dtype=np.float32)[:env.nu]
+    for i in range(100):
         obs, rew, term, trunc, info = env.step(action)
+        a += rew
         if term or trunc:
             break
-    print("done:", term, "truncated:", trunc, "reward:", rew)
+    print("done:", term, "truncated:", trunc, "reward:", rew, "iter:", i ,"rew_sum=", a)
