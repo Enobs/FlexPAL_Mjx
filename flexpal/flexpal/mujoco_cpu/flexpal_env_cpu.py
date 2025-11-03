@@ -242,6 +242,45 @@ class FlexPALSB3Env(gym.Env):
             desired  = self.goal.astype(np.float32)                              # 3
 
         return {"observation": obsv, "achieved_goal": achieved, "desired_goal": desired}
+    
+    def estimate_jacobian_fd(self, eps: float = 1e-3, K: int = 5) -> np.ndarray:
+
+        nu = self.nu
+        J = np.zeros((3, nu), dtype=np.float32)
+
+        base = mujoco.MjData(self.model)
+        base.qpos[:] = self.data.qpos
+        base.qvel[:] = self.data.qvel
+        base.act[:]  = self.data.act
+        base.ctrl[:] = self.data.ctrl
+        mujoco.mj_forward(self.model, base)
+        for _ in range(self.K_substeps if K is None else K):
+            mujoco.mj_step(self.model, base)
+        x0 = sensors.site_pos(base, self.tip_sid).astype(np.float32)
+
+        # 2) 对每个通道做 +eps 微扰，并同样推进 K 步
+        for i in range(nu):
+            dtmp = mujoco.MjData(self.model)
+            dtmp.qpos[:] = self.data.qpos
+            dtmp.qvel[:] = self.data.qvel
+            dtmp.act[:]  = self.data.act
+            dtmp.ctrl[:] = self.data.ctrl
+            mujoco.mj_forward(self.model, dtmp)
+            ctrl = dtmp.ctrl[:nu].copy()
+            # eps 建议按 ctrlrange 的比例来取，避免过小/过大
+            rng = (self.L_max[i] - self.L_min[i])
+            de  = eps if eps is not None else 1e-3
+            de  = max(de, 1e-4 * rng)  # 至少是范围的 0.01%
+            ctrl[i] = np.clip(ctrl[i] + de, self.L_min[i], self.L_max[i])
+            dtmp.ctrl[:nu] = ctrl
+
+            for _ in range(self.K_substeps if K is None else K):
+                mujoco.mj_step(self.model, dtmp)
+
+            x1 = sensors.site_pos(dtmp, self.tip_sid).astype(np.float32)
+            J[:, i] = (x1 - x0) / de
+
+        return J
 
 
     # ---------- Gym API ----------

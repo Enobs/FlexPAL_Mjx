@@ -28,25 +28,30 @@ def finite_diff_jac(env, l, site_id=None, eps=1e-3):
     return np.stack(J_cols, axis=1)    # 形状 (3, nu)
 
 class BaselineController:
-    def __init__(self, site_id=None, kp=2.0, dl_rate=0.005, dl_limit=0.01, eps_jac=1e-3):
-        self.site_id = site_id
+    def __init__(self, kp=2.0, dl_rate=0.005, dl_limit=0.01, eps_jac=1e-3, K=5):
         self.kp = kp
         self.dl_rate = dl_rate
         self.limiter = RateLimiter(dl_limit)
         self.eps_jac = eps_jac
+        self.K = K
 
     def step(self, env, x_goal):
-        x = env.get_ee_pos(self.site_id)
-        ex = x_goal - x                    # 任务空间误差
-        v_des = self.kp * ex               # 期望末端“速度”
-        l = env.get_lengths()              # 腔长
-        J = finite_diff_jac(env, l, self.site_id, eps=self.eps_jac)   # (3, nu)
+        x = env.get_ee_pos()
+        ex = x_goal - x                         # 任务空间误差
+        v_des = self.kp * ex                    # 期望末端“速度”
+        l = env.get_lengths()                   # 当前 ctrl（长度目标）
+
+        # 直接用 env 内部的临时 MjData 做差分雅可比
+        J = env.estimate_jacobian_fd(eps=self.eps_jac, K=self.K)   # (3, nu)
+
         # 最小二乘伪逆
         dl, *_ = np.linalg.lstsq(J, v_des, rcond=None)
         dl = self.limiter(dl * self.dl_rate)
+
         l_min, l_max = env.get_l_bounds()
         l_next = np.clip(l + dl, l_min, l_max)
         return l_next, float(np.linalg.norm(ex)), dl
+
 
 # ====== 目标采样（均匀 + 边界偏置）======
 def sample_goals(n, workspace):
@@ -72,10 +77,15 @@ def sample_goals(n, workspace):
     return xyz.astype(np.float32)
 
 # ====== VecEnv 工厂 ======
-def make_env_fn(env_cls, seed, site_id=None, **env_kwargs):
+def make_env_fn(env_cls,xml, **env_kwargs):
     def _thunk():
-        env = env_cls(site_id=site_id, **env_kwargs)
-        env.seed(seed)
+        env = env_cls(xml_path=xml,
+                      action_mode="absolute",
+                      render_mode=None,           #
+                      render_camera=None,
+                      K_substeps=10,
+                      max_episode_steps=200,
+                      **env_kwargs)
         return env
     return _thunk
 
@@ -153,20 +163,21 @@ def save_dataset(dataset, save_prefix):
 # ====== 一键运行 ======
 def main():
     # 1) 配置你的环境和工作空间
-    from your_env_module import YourMuJoCoEnv  # TODO: 替换成你的环境
-    site_id = None     # 如果有末端 site，可填 int
-    n_envs = 16
+    from flexpal.mujoco_cpu.flexpal_env_cpu import FlexPALSB3Env 
+    n_envs = 1
     n_goals = 10000    # 先 1e4 起步，够训练一个 R(x) 了
     T_max = 300
     eps_pos = 0.01     # 1 cm 成功阈值
     workspace = dict(xmin=0.05, xmax=0.35, ymin=-0.15, ymax=0.15, zmin=0.05, zmax=0.30)
 
     # 2) VecEnv
-    env_fns = [make_env_fn(YourMuJoCoEnv, seed=1000+i, site_id=site_id) for i in range(n_envs)]
+    env_fns = [make_env_fn(FlexPALSB3Env,
+                            xml="/home/yinan/Documents/FlexPAL_Mjx/flexpal/flexpal/model/pickandplace.xml"
+                           ) for i in range(n_envs)]
     vec_env = SubprocVecEnv(env_fns)
 
     # 3) 控制器参数（按你的系统实际改）
-    controller = BaselineController(site_id=site_id, kp=2.0, dl_rate=0.005, dl_limit=0.01, eps_jac=1e-3)
+    controller = BaselineController(kp=2.0, dl_rate=0.005, dl_limit=0.01, eps_jac=1e-3)
 
     # 4) 采目标 & rollout
     goals = sample_goals(n_goals, workspace)
