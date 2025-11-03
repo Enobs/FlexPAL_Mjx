@@ -6,16 +6,14 @@ from gymnasium import spaces
 import mujoco
 from typing import Tuple, Dict, Optional
 
-from renderers import MjRenderer  # 你的自定义渲染器
+from renderers import MjRenderer 
 
-# CPU 版工具
 import flexpal.mujoco_cpu.idbuild as idbuild
 from flexpal.mujoco_cpu import sensors
 
 
 # ---------- utils ----------
 def quat_geodesic_angle_np(q1: np.ndarray, q2: np.ndarray, eps: float = 1e-8) -> float:
-    """geodesic angle between two quaternions (unit)"""
     q1 = q1 / (np.linalg.norm(q1) + eps)
     q2 = q2 / (np.linalg.norm(q2) + eps)
     c = np.clip(abs(float(np.dot(q1, q2))), 0.0, 1.0)
@@ -43,8 +41,11 @@ def reaching_reward_np(
     ee_quat = ee_quat / (np.linalg.norm(ee_quat) + 1e-8)
 
     pos_err = float(np.linalg.norm(ee_pos - goal_pos))
-    ang_err = quat_geodesic_angle_np(ee_quat, goal_quat)
-    base_r  = -(w_pos * pos_err + w_ori * ang_err)
+    if np.isnan(goal_quat).all():
+        base_r  = -(w_pos * pos_err)
+    else:
+        ang_err = quat_geodesic_angle_np(ee_quat, goal_quat)
+        base_r  = -(w_pos * pos_err + w_ori * ang_err)
 
     improve = 0.0
     if prev_data is not None:
@@ -56,7 +57,6 @@ def reaching_reward_np(
         # improve = (pos0 - pos_err) + ang_improve_scale * (ang0 - ang_err)
 
     def _sigmoid_stable(z: float) -> float:
-        # 数值稳定 sigmoid
         if z >= 0:
             return 1.0 / (1.0 + np.exp(-z))
         ez = np.exp(z)
@@ -103,9 +103,8 @@ class FlexPALSB3Env(gym.Env):
         render_width: int = 960,
         render_height: int = 720,
         render_camera: Optional[str] = None,
-        # 新增：每步惩罚配置
-        step_penalty: float = 0.01,   # 每步扣多少
-        use_time_scale: bool = False, # True=按秒扣，False=按步扣
+        step_penalty: float = 0.01,   
+        use_time_scale: bool = False, 
     ):
         super().__init__()
         self.model = mujoco.MjModel.from_xml_path(xml_path)
@@ -127,7 +126,7 @@ class FlexPALSB3Env(gym.Env):
         model_dt      = float(self.model.opt.timestep)
         self.n_frames = max(1, int(round((1.0 / control_freq) / model_dt)))
         self.K_substeps = int(K_substeps)
-        self.control_period = self.n_frames * model_dt  # 每个 env.step() 对应的秒数
+        self.control_period = self.n_frames * model_dt  
 
         # ranges / sizes
         ctrl_rng      = self.model.actuator_ctrlrange.astype(np.float32)
@@ -206,7 +205,6 @@ class FlexPALSB3Env(gym.Env):
                 mujoco.mj_step(self.model, self.data)
 
     def _clone_core_state(self) -> mujoco.MjData:
-        """轻量深拷贝 data 中用于 reward 的关键态 (qpos/qvel/ctrl) + forward"""
         d = mujoco.MjData(self.model)
         d.qpos[:] = self.data.qpos
         d.qvel[:] = self.data.qvel
@@ -245,7 +243,7 @@ class FlexPALSB3Env(gym.Env):
         self._timestep = 0
         self._set_ctrl(np.ones(self.nu, dtype=np.float32) * 0.29)
         self._step_physics()
-
+        self.l0 = sensors.tendon_length(self.ids_ten)   # <--- 新增
         if self._renderer is not None:
             self._renderer.update(self.model, self.data)
             if self.render_mode == "rgb_array":
@@ -282,7 +280,7 @@ class FlexPALSB3Env(gym.Env):
 
         u_new = self.alpha * L_prev + (1.0 - self.alpha) * L_target
 
-        prev_snapshot = self._clone_core_state()  # 用于“进步项”
+        prev_snapshot = self._clone_core_state() 
         self._set_ctrl(u_new)
         self._step_physics()
 
@@ -296,7 +294,6 @@ class FlexPALSB3Env(gym.Env):
         du_pen = float(np.mean((u_new - L_prev) ** 2))
         reward = r_shape - self.w_du * du_pen
 
-        # ---- 每步惩罚：按步或按秒 ----
         if self.use_time_scale:
             reward -= self.step_penalty * self.control_period
         else:
@@ -318,7 +315,6 @@ class FlexPALSB3Env(gym.Env):
             "time_limit": truncated,
         }
 
-        # 渲染
         if self._renderer is not None:
             self._renderer.update(self.model, self.data)
             if self.render_mode == "human":
@@ -347,6 +343,37 @@ class FlexPALSB3Env(gym.Env):
             return None if self._last_rgb is None else self._last_rgb.copy()
         return None
 
+    def set_goal(self, x_goal: np.ndarray):
+        x_goal = np.asarray(x_goal, dtype=float)
+        if x_goal.shape[0] == 3:
+            self.x_goal = np.empty(7, dtype=float)
+            self.x_goal[:3] = x_goal
+            self.x_goal[3:] = np.nan         
+        elif x_goal.shape[0] == 7:
+            self.x_goal = x_goal.copy()
+        else:
+            raise ValueError("x_goal must be shape (3,) or (7,)")
+
+    def get_start_lengths(self) -> np.ndarray:
+        return self.l0.copy()   
+
+    def baseline_step(self, controller, x_goal):
+        l_next, dist, dl = controller.step(self, x_goal)
+        self.set_lengths(l_next)   
+        return l_next, dist, dl
+
+    def get_ee_pos(self, id = None)-> np.ndarray:
+        return sensors.site_pos(self.data, self.tip_sid).astype(np.float32)
+    
+    def get_lengths(self) -> np.ndarray:              
+        return sensors.tendon_state(self.data, self.ids_ten).astype(np.float32)
+        
+    def set_length(self, ctrl_vec: np.ndarray)-> np.ndarray:
+        return self._set_ctrl(ctrl_vec)
+    
+    def get_l_bounds(self) -> Tuple[np.ndarray, np.ndarray]:
+        return self.L_min, self.L_max
+    
     def close(self):
         try:
             if self._renderer is not None:

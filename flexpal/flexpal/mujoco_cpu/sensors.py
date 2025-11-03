@@ -52,9 +52,6 @@ def site_quat_world(d: mujoco.MjData, site_id: int) -> np.ndarray:
     R = d.site_xmat[site_id].reshape(3, 3)
     return rotmat_to_quat(R)
 
-def tendon_length(d: mujoco.MjData, tendon_id: int) -> float:
-    return float(d.ten_length[tendon_id])
-
 def tendon_state(d: mujoco.MjData, tendon_ids: np.ndarray) -> np.ndarray:
     return d.ten_length[tendon_ids].copy()
 
