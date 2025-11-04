@@ -81,7 +81,7 @@ def find_latest_version(file_prefix: str, directory: str):
     """
     highest = -1
     latest_name = ""
-    pat = re.compile(fr"^{re.escape(file_prefix)}_(\d+)$")
+    pat = re.compile(fr"^{re.escape(file_prefix)}_(\d+)\.zip$")
     for fn in os.listdir(directory):
         m = pat.match(fn)
         if m:
@@ -105,13 +105,14 @@ def train(total_steps: int = int(1e5),
           seed: int = 0,
           save_freq: int = 51200,
           resume: bool = False,
-          n_epochs: int = 8):
+          n_epochs: int = 8,
+          ):
     """
     PPO 训练主程序
     """
     env = make_vec_envs(n_envs=n_envs, use_subproc=True)
 
-    policy_kwargs = dict(net_arch=[128, 128])  # 你原来 512×6 太大易不稳；PPO 默认 256×2 常用
+    policy_kwargs = dict(net_arch=[256, 256])  # 你原来 512×6 太大易不稳；PPO 默认 256×2 常用
     model: PPO
 
     # 断点续训（如果需要）
@@ -192,7 +193,6 @@ def train(total_steps: int = int(1e5),
     print(f"[Save] Final model -> {final_path}")
 
     env.close()
-
 # ========= 测试 =========
 def test_model(model_path: Optional[str] = None, deterministic: bool = True, episodes: int = 5):
 
@@ -202,33 +202,33 @@ def test_model(model_path: Optional[str] = None, deterministic: bool = True, epi
     assert model_path and os.path.exists(model_path + ".zip"), f"Model not found: {model_path}"
     print(f"[Test] Loading {model_path}")
     model = PPO.load(model_path, env=env, device=DEVICE)
-
-    for ep in range(episodes):
-        obs, _ = env.reset()
-        ep_ret, ep_len = 0.0, 0
-        while True:
-            action, _ = model.predict(obs, deterministic=deterministic)
-            obs, reward, terminated, truncated, info = env.step(action)
-            ep_ret += float(reward)
-            ep_len += 1
-            # 如需可视化再启用：env.render()
-            if terminated or truncated:
-                print(f"[Episode {ep+1}] return={ep_ret:.2f} len={ep_len}")
-                break
+    while(1):
+        for ep in range(episodes):
+            obs, _ = env.reset()
+            ep_ret, ep_len = 0.0, 0
+            while True:
+                action, _ = model.predict(obs, deterministic=deterministic)
+                obs, reward, terminated, truncated, info = env.step(action)
+                ep_ret += float(reward)
+                ep_len += 1
+                # 如需可视化再启用：env.render()
+                if terminated or truncated:
+                    print(f"[Episode {ep+1}] return={ep_ret:.2f} len={ep_len}")
+                    break
     env.close()
 
 # ========= 入口 =========
 if __name__ == "__main__":
-    # train(
-    #     total_steps=int(1e7),
-    #     n_envs=128,
-    #     n_steps=128,
-    #     batch_size=1024,
-    #     gamma=0.96,
-    #     ent_coef = 1e-3,
-    #     seed=0,
-    #     save_freq=51200,
-    #     resume=False,    
-    #     n_epochs=8,
-    # )
-    test_model("/home/yinan/Documents/FlexPAL_Mjx/PPO_SOFT_ROBOT_new")
+    train(
+        total_steps=int(1e8),
+        n_envs=1,
+        n_steps=1024,
+        batch_size=512,
+        gamma=0.99,
+        ent_coef = 1e-2,
+        seed=0,
+        save_freq=51200,
+        resume=True,    
+        n_epochs=8,
+    )
+    # test_model("/home/yinan/Documents/FlexPAL_Mjx/flexpal/flexpal/PPO_SOFT_ROBOT_0")

@@ -6,7 +6,7 @@ from gymnasium import spaces
 import mujoco
 from typing import Tuple, Dict, Optional
 
-from renderers import MjRenderer 
+from flexpal.mujoco_cpu.renderers import MjRenderer 
 
 import flexpal.mujoco_cpu.idbuild as idbuild
 from flexpal.mujoco_cpu import sensors
@@ -22,18 +22,11 @@ def quat_geodesic_angle_np(q1: np.ndarray, q2: np.ndarray, eps: float = 1e-8) ->
 
 def reaching_reward_np(
     data: mujoco.MjData,
-    model: mujoco.MjModel,
     goal: np.ndarray,
     goal_dim: int,        
     tip_site_id: int,
     w_pos: float = 1.0,
     w_ori: float = 0.2,
-    prev_data: Optional[mujoco.MjData] = None,
-    tol_pos: float = 5e-3,
-    tol_ang: float = 5e-2,
-    w_improve: float = 0.5,
-    w_soft: float = 0.5,
-    ang_improve_scale: float = 0.3,
     clip_range: float = 50.0,
 ) -> Tuple[float, float, float, float]:
     ee_pos  = sensors.site_pos(data, tip_site_id)
@@ -48,30 +41,8 @@ def reaching_reward_np(
         ang_err = quat_geodesic_angle_np(ee_quat, goal[3:])
         base_r  = -(w_pos * pos_err + w_ori * ang_err)
 
-    improve = 0.0
-    if prev_data is not None:
-        p0  = sensors.site_pos(prev_data, tip_site_id)
-        q0  = sensors.site_quat_world(prev_data, tip_site_id)
-        q0  = q0 / (np.linalg.norm(q0) + 1e-8)
-        pos0 = float(np.linalg.norm(p0 - goal[:3]))
-        if goal_dim == 7:
-            ang0 = quat_geodesic_angle_np(q0, goal[3:])
-        # improve = (pos0 - pos_err) + ang_improve_scale * (ang0 - ang_err)
-
-    def _sigmoid_stable(z: float) -> float:
-        if z >= 0:
-            return 1.0 / (1.0 + np.exp(-z))
-        ez = np.exp(z)
-        return ez / (1.0 + ez)
-
-    def smooth_success(e, tol):
-        x = (tol - e) / (tol + 1e-6)
-        return _sigmoid_stable(6.0 * x)
-
-    # soft = 0.7 * smooth_success(pos_err, tol_pos) + 0.3 * smooth_success(ang_err, tol_ang)
-    soft = 0
-    reward = float(np.clip(base_r + w_improve * improve + w_soft * soft, -clip_range, clip_range))
-    return reward, pos_err, ang_err, soft
+    reward = float(np.clip(base_r , -clip_range, clip_range))
+    return reward, pos_err, ang_err, 
 
 
 class FlexPALSB3Env(gym.Env):
@@ -100,7 +71,7 @@ class FlexPALSB3Env(gym.Env):
         w_du: float = 1e-2,
         r_bonus: float = 8.0,
         K_substeps: int = 10,
-        max_episode_steps: int = 100,
+        max_episode_steps: int = 200,
         render_mode: Optional[str] = None,
         render_width: int = 960,
         render_height: int = 720,
@@ -108,6 +79,8 @@ class FlexPALSB3Env(gym.Env):
         step_penalty: float = 0.01,   
         use_time_scale: bool = False, 
         pos_only_ctrl = True,
+        goal_library_path: Optional[str] = None,
+        goal_voxel: Optional[float] = 0.002,
     ):
         super().__init__()
         self.model = mujoco.MjModel.from_xml_path(xml_path)
@@ -158,6 +131,14 @@ class FlexPALSB3Env(gym.Env):
         # step penalty
         self.step_penalty = float(step_penalty)
         self.use_time_scale = bool(use_time_scale)
+        
+        self._prev_pos_err = None
+        self._prog_hist = []
+        self.stall_win = 15       # 连续多少步观察进步
+        self.stall_eps = 1e-4     # 平均进步阈值（米）
+        self.sat_frac_th = 0.3    # 动作饱和占比阈值
+        self.sat_eps = 0.98       # |a|>0.98 视为饱和
+        self.beta_prog = 0.3      # 进步奖励系数（0.2~0.6 可调）
 
         if pos_only_ctrl: 
             g = np.array([-0.201, 0.149, 0.840], dtype=np.float32)
@@ -168,6 +149,32 @@ class FlexPALSB3Env(gym.Env):
             g[3:] /= (np.linalg.norm(g[3:]) + 1e-8)
             self.goal = g
             self.goal_dim = 7
+            
+        self._goal_lib: Optional[np.ndarray] = None
+        if goal_library_path is not None:
+            try:
+                D = np.load(goal_library_path)
+                X = D["X"].astype(np.float32)  
+                if goal_voxel is not None:
+                    vox = np.floor(X / float(goal_voxel)).astype(np.int32)
+                    _, keep = np.unique(vox, axis=0, return_index=True)
+                    X = X[keep]
+                self._goal_lib = X
+                # 用库决定 workspace（轻微外扩便于可视化/渲染）
+                mins, maxs = X.min(axis=0), X.max(axis=0)
+                pad = 0.005
+                self.workspace = dict(
+                    xmin=float(mins[0]-pad), xmax=float(maxs[0]+pad),
+                    ymin=float(mins[1]-pad), ymax=float(maxs[1]+pad),
+                    zmin=float(max(0.0, mins[2]-pad)), zmax=float(maxs[2]+pad),
+                )
+                print(f"[Env] goal library loaded: {len(X)} points; workspace={self.workspace}")
+            except Exception as e:
+                print(f"[Env] failed to load goal library: {e}")
+                self._goal_lib = None
+                self.workspace = None
+        else:
+            self.workspace = None
 
         # spaces
         imu_len = int(len(self.ids_ten) * 6)
@@ -243,11 +250,10 @@ class FlexPALSB3Env(gym.Env):
 
         return {"observation": obsv, "achieved_goal": achieved, "desired_goal": desired}
     
-    def estimate_jacobian_fd(self, eps: float = 1e-3, K: int = 5) -> np.ndarray:
+    def estimate_jacobian_fd(self, eps: float = 1e-3, K: int = 10) -> np.ndarray:
 
         nu = self.nu
         J = np.zeros((3, nu), dtype=np.float32)
-
         base = mujoco.MjData(self.model)
         base.qpos[:] = self.data.qpos
         base.qvel[:] = self.data.qvel
@@ -289,9 +295,21 @@ class FlexPALSB3Env(gym.Env):
         mujoco.mj_resetData(self.model, self.data)
         self._success_streak = 0
         self._timestep = 0
+        self._prev_pos_err = None
+        self._prog_hist.clear()
         self._set_ctrl(np.ones(self.nu, dtype=np.float32) * 0.29)
         self.l0 = self.data.ctrl[:self.nu].copy()
         self._step_physics()
+        if self._goal_lib is not None:
+            idx = np.random.randint(0, self._goal_lib.shape[0])
+            goal_pos = self._goal_lib[idx]
+            if self.goal_dim == 3:
+                self.set_goal(goal_pos.astype(np.float32))  # (3,)
+            else:
+                # 如需姿态目标，你可以拼接一个默认四元数或从数据里取；这里只给位置
+                g7 = np.empty(7, dtype=np.float32); g7[:3] = goal_pos; g7[3:] = np.array([1,0,0,0], np.float32)
+                self.set_goal(g7)
+        
         if self._renderer is not None:
             self._renderer.update(self.model, self.data)
             if self.render_mode == "rgb_array":
@@ -300,6 +318,7 @@ class FlexPALSB3Env(gym.Env):
         obs = self._obs_from_data()
         info = {}
         return obs, info
+
 
     def step(self, action: np.ndarray):
         a = np.asarray(action, dtype=np.float32)
@@ -332,12 +351,9 @@ class FlexPALSB3Env(gym.Env):
         self._set_ctrl(u_new)
         self._step_physics()
 
-        r_shape, pos_err, ang_err, soft_succ = reaching_reward_np(
-            self.data, self.model, self.goal, self.goal_dim, self.tip_sid,
-            w_pos=self.w_pos, w_ori=self.w_ori,
-            prev_data=prev_snapshot, tol_pos=self.tol_pos, tol_ang=self.tol_ang,
-            w_improve=0.5, w_soft=0.5, ang_improve_scale=0.3
-        )
+        r_shape, pos_err, ang_err = reaching_reward_np(
+            self.data, self.goal, self.goal_dim, self.tip_sid,
+            w_pos=self.w_pos, w_ori=self.w_ori)
 
         du_pen = float(np.mean((u_new - L_prev) ** 2))
         reward = r_shape - self.w_du * du_pen
@@ -362,8 +378,8 @@ class FlexPALSB3Env(gym.Env):
         info = {
             "pos_err": pos_err,
             "ang_err": ang_err,
-            "soft_succ": soft_succ,
             "time_limit": truncated,
+            "success": bool(terminated and not truncated),
         }
 
         if self._renderer is not None:
@@ -374,6 +390,77 @@ class FlexPALSB3Env(gym.Env):
                 self._last_rgb = self._renderer.render()
 
         return obs, reward, terminated, truncated, info
+
+
+
+
+        # --------- 进步塑形 (policy-invariant) ----------
+        if not hasattr(self, "_prev_pos_err") or self._prev_pos_err is None:
+            self._prev_pos_err = float(pos_err)
+
+        if not hasattr(self, "beta_prog"):
+            self.beta_prog = 0.3     # 可在 __init__ 固定配置
+        if not hasattr(self, "_prog_hist"):
+            self._prog_hist = []
+            self.stall_win    = 15   # 连续观察步数
+            self.stall_eps    = 1e-4 # 平均进步阈值(米)
+            self.sat_frac_th  = 0.30 # 动作饱和占比阈值
+            self.sat_eps      = 0.98 # |a|>=sat_eps 视为饱和
+
+        delta = float(self._prev_pos_err - pos_err)  # >0 表示更接近
+        r_prog = self.beta_prog * max(min(delta, float(self.tol_pos)), -float(self.tol_pos))
+        # 近端加权：越靠近目标，进步奖励略放大
+        denom = max(1e-8, 2.0 * float(self.tol_pos))
+        near  = max(0.0, 1.0 - float(pos_en) / denom) if denom > 0 else 0.0
+        r_prog *= (1.0 + 0.5 * near)
+        reward += r_prog
+        self._prev_pos_err = float(pos_err)
+
+        # --------- 成功检测（保持你的 ok/hold_steps 逻辑） ----------
+        if self.goal_dim == 3:
+            ok = (pos_err < self.tol_pos)
+        else:
+            ok = (pos_err < self.tol_pos) and (ang_err < self.tol_ang)
+
+        self._success_streak = self._success_streak + 1 if ok else 0
+        terminated = bool(self._success_streak >= self.hold_steps)
+        if terminated:
+            reward += self.r_bonus
+
+        # --------- 早停：无进步 + 动作长期饱和 ----------
+        # 把最近的进步记录进窗口
+        self._prog_hist.append(delta)
+        if len(self._prog_hist) > self.stall_win:
+            self._prog_hist.pop(0)
+        sat_frac = float(np.mean(np.abs(a) >= self.sat_eps))
+
+        if (not terminated) and len(self._prog_hist) == self.stall_win:
+            avg_prog = float(np.mean(self._prog_hist))
+            if (avg_prog < self.stall_eps) and (sat_frac > self.sat_frac_th):
+                # 轻微负奖，避免长时间原地推不动
+                reward -= 0.2
+                terminated = True
+
+        truncated = bool(self._timestep >= self.max_episode_steps)
+
+        obs = self._obs_from_data()
+        info = {
+            "pos_err": float(pos_err),
+            "ang_err": float(ang_err),
+            "time_limit": truncated,
+            "success": bool(terminated and not truncated),
+            "r_prog": float(r_prog),
+        }
+
+        if self._renderer is not None:
+            self._renderer.update(self.model, self.data)
+            if self.render_mode == "human":
+                self._renderer.render()
+            elif self._render_w is not None:
+                self._last_rgb = self._renderer.render()
+
+        return obs, float(reward), bool(terminated), bool(truncated), info
+
 
     # ---------- Render API ----------
     def render(self):
@@ -422,7 +509,7 @@ class FlexPALSB3Env(gym.Env):
         return sensors.site_pos(self.data, self.tip_sid).astype(np.float32)
     
     def get_lengths(self) -> np.ndarray:
-        return self.data.ctrl[:self.nu].astype(np.float32)
+        return sensors.tendon_state(self.data,self.ids_ten)
 
     def set_lengths(self, l: np.ndarray):
         l = np.asarray(l, dtype=np.float32)
@@ -456,7 +543,7 @@ if __name__ == "__main__":
     )
     obs, info = env.reset()
     a = 0
-    action = np.array([-1, 1, -1, 1, -1, 1, -0.95, 1, -1], dtype=np.float32)[:env.nu]
+    action = np.array([-1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=np.float32)[:env.nu]
     for i in range(100):
         obs, rew, term, trunc, info = env.step(action)
         a += rew
