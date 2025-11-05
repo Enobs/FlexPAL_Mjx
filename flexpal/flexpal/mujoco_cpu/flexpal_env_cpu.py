@@ -301,7 +301,7 @@ class FlexPALSB3Env(gym.Env):
         self.l0 = self.data.ctrl[:self.nu].copy()
         self._step_physics()
         if self._goal_lib is not None:
-            idx = np.random.randint(0, self._goal_lib.shape[0])
+            idx = self.np_random.integers(self._goal_lib.shape[0])
             goal_pos = self._goal_lib[idx]
             if self.goal_dim == 3:
                 self.set_goal(goal_pos.astype(np.float32))  # (3,)
@@ -316,8 +316,11 @@ class FlexPALSB3Env(gym.Env):
                 self._last_rgb = self._renderer.render()
 
         obs = self._obs_from_data()
-        info = {}
-        return obs, info
+        assert isinstance(obs, dict)
+        assert obs["achieved_goal"].shape == (self.goal_dim,)
+        assert obs["desired_goal"].shape  == (self.goal_dim,)
+        return obs, {}
+
 
 
     def step(self, action: np.ndarray):

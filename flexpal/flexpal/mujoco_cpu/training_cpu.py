@@ -43,6 +43,68 @@ def _extract_ver_from_name(path_or_name: str) -> Optional[int]:
 def _vecnorm_path_from_ver(ver: int) -> str:
     return os.path.join(SAVE_DIR, f"vecnormalize_{ver}.pkl")
 
+def _clone_vecnorm_stats(src_vn: VecNormalize, dst_vn: VecNormalize):
+    """
+    兼容新版 VecNormalize：复制 obs_rms / ret_rms 统计量。
+    """
+
+    def _copy_rms(src_rms, dst_rms):
+        # 支持单个 RunningMeanStd 或 dict
+        if isinstance(src_rms, dict) and isinstance(dst_rms, dict):
+            for key in src_rms.keys():
+                if key not in dst_rms:
+                    continue
+                dst_rms[key].mean  = src_rms[key].mean.copy()
+                dst_rms[key].var   = src_rms[key].var.copy()
+                dst_rms[key].count = float(src_rms[key].count)
+        else:
+            dst_rms.mean  = src_rms.mean.copy()
+            dst_rms.var   = src_rms.var.copy()
+            dst_rms.count = float(src_rms.count)
+
+    # ---- 拷贝 observation 统计 ----
+    _copy_rms(src_vn.obs_rms, dst_vn.obs_rms)
+
+    # ---- 拷贝 reward 统计 ----
+    if src_vn.ret_rms is not None and dst_vn.ret_rms is not None:
+        _copy_rms(src_vn.ret_rms, dst_vn.ret_rms)
+
+    # ---- 保持配置一致 ----
+    dst_vn.clip_obs     = src_vn.clip_obs
+    dst_vn.clip_reward  = src_vn.clip_reward
+    dst_vn.gamma        = src_vn.gamma
+    dst_vn.epsilon      = src_vn.epsilon
+    dst_vn.training     = src_vn.training
+    dst_vn.norm_reward  = src_vn.norm_reward
+
+def _rebuild_env_and_swap(model, n_envs: int, gamma: float = 0.99):
+    """
+    关闭旧的 SubprocVecEnv，重建新的子进程，并把 VecNormalize 的统计量拷过去。
+    """
+    old_env = model.get_env()
+    assert isinstance(old_env, VecNormalize), "train() 里请确保最外层是 VecNormalize"
+
+    # 1) 新建一套 env 进程
+    new_vec = make_vec_envs(n_envs=n_envs, use_subproc=True)
+    new_env = VecNormalize(new_vec, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=gamma)
+    new_env.training = True
+    new_env.norm_reward = True
+
+    # 2) 拷贝统计量
+    _clone_vecnorm_stats(old_env, new_env)
+
+    # 3) 切换模型的 env
+    model.set_env(new_env)
+
+    # 4) 关闭旧 env（释放旧子进程/Fd/内存）
+    try:
+        old_env.close()
+    except Exception:
+        pass
+
+    return new_env
+
+
 def find_latest_version(file_prefix: str, directory: str):
     highest = -1
     latest_name = ""
@@ -97,10 +159,10 @@ def make_env():
 
 def make_vec_envs(n_envs: int, use_subproc: bool = True):
     Vec = SubprocVecEnv if (use_subproc and n_envs > 1) else DummyVecEnv
+    if Vec is SubprocVecEnv:
+        return Vec([make_env() for _ in range(n_envs)], start_method="forkserver")  # or "spawn"
     return Vec([make_env() for _ in range(n_envs)])
-
-# ======= 训练 =======
-def train(total_steps: int = int(1e6),
+def train(total_steps: int = int(5e7),
           n_envs: int = 16,
           n_steps: int = 128,
           batch_size: int = 1024,
@@ -109,10 +171,11 @@ def train(total_steps: int = int(1e6),
           seed: int = 0,
           save_freq: int = 51200,
           resume: bool = False,
-          n_epochs: int = 8):
+          n_epochs: int = 8,
+          steps_per_cycle: int = int(1e7)):   # ★ 每个周期的步数
     policy_kwargs = dict(net_arch=[128, 128])
 
-    # 构造 env / model（统一放到 resume 分支中处理）
+    # === 构造 env + model（与你现有逻辑一致） ===
     last_path = latest_model_path(MODEL_PREFIX, SAVE_DIR) if resume else None
     if resume and last_path and os.path.exists(last_path):
         print(f"[Resume] Loading {last_path}")
@@ -133,6 +196,8 @@ def train(total_steps: int = int(1e6),
             print("[Resume] No previous model found, starting fresh.")
         envs = make_vec_envs(n_envs=n_envs, use_subproc=True)
         env = VecNormalize(envs, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=gamma)
+        env.training = True
+        env.norm_reward = True
         model = PPO(
             policy="MultiInputPolicy",
             env=env,
@@ -152,40 +217,48 @@ def train(total_steps: int = int(1e6),
             policy_kwargs=policy_kwargs,
         )
 
-    # 回调：定期保存
     callback = TensorboardCheckpointCallback(save_dir=SAVE_DIR, save_freq=save_freq, verbose=1)
 
-    # Warmup（resume 时不扰动统计）
+    # 可选 warmup（你保留原逻辑即可）
     warmup = 0 if resume else max(n_envs * 2, 2048)
     if warmup > 0:
         print(f"[Warmup] {warmup} steps (not counted)")
         model.learn(total_timesteps=warmup, reset_num_timesteps=False, progress_bar=False)
 
-    # 计时
+    # === 分段训练 + 周期性重启 env 进程 ===
+    done = 0
     t0 = time.time()
-    model.learn(total_timesteps=total_steps, callback=callback, reset_num_timesteps=False, progress_bar=False)
-    t1 = time.time()
+    while done < total_steps:
+        run = min(steps_per_cycle, total_steps - done)
+        print(f"\n=== Cycle: training {run:,} steps (done {done:,}/{total_steps:,}) ===")
+        model.learn(total_timesteps=run, reset_num_timesteps=False, callback=callback, progress_bar=False)
+        done += run
 
-    elapsed = t1 - t0
-    sps = total_steps / max(elapsed, 1e-9)
-    sps_per_env = sps / n_envs
+        # 周期结束：重启 SubprocVecEnv，并保留 VecNormalize 统计量
+        if done < total_steps:
+            _rebuild_env_and_swap(model, n_envs=n_envs, gamma=gamma)
+            print("[Cycle] Rebuilt SubprocVecEnv and migrated VecNormalize stats.")
+
+    t1 = time.time()
     print("=" * 60)
     print(f"[PPO] total_steps={total_steps:,} | n_envs={n_envs} | device={DEVICE}")
-    print(f"Elapsed: {elapsed:.2f}s | Throughput: {sps:,.0f} steps/s (~{sps_per_env:,.0f}/env/s)")
+    print(f"Elapsed: {t1 - t0:.2f}s")
     print("=" * 60)
 
-    # 末尾保存（与 SAVE_DIR 统一）
+    # 末尾保存（同你现有逻辑）
     _, next_ver = find_latest_version(MODEL_PREFIX, SAVE_DIR)
     final_path = os.path.join(SAVE_DIR, f"{MODEL_PREFIX}_{next_ver}")
     model.save(final_path)
     print(f"[Save] Final model -> {final_path}")
 
+    env = model.get_env()
     if isinstance(env, VecNormalize):
         vn_path = _vecnorm_path_from_ver(next_ver)
         env.save(vn_path)
         print(f"[Save] VecNormalize -> {vn_path}")
 
     env.close()
+
 
 # ======= 测试 =======
 def test_model(model_path: Optional[str] = None, deterministic: bool = True, episodes: int = 5):
@@ -208,33 +281,45 @@ def test_model(model_path: Optional[str] = None, deterministic: bool = True, epi
     eval_env.norm_reward = False
 
     model = PPO.load(model_path, env=eval_env, device=DEVICE)
+    while True:
+        obs = eval_env.reset()
+        for ep in range(episodes):
+            ep_ret, ep_len = 0.0, 0
+            done = [False]
+            while not done[0]:
+                action, _ = model.predict(obs, deterministic=deterministic)
+                next_obs, reward, done, info = eval_env.step(action)
+                ep_ret += float(reward[0])
+                ep_len += 1
+                if done[0]:
+                    term = info[0].get("terminal_observation") or info[0].get("final_observation")
+                    if term is not None and hasattr(eval_env, "unnormalize_obs"):
+                        term_orig = eval_env.unnormalize_obs(term)
+                        print(f"[Episode {ep+1}] terminal achieved_goal={term_orig['achieved_goal']} "
+                            f"desired_goal={term_orig['desired_goal']}")
+                    if info[0].get("TimeLimit.truncated", False):
+                        print("[Episode {ep+1}] truncated by time limit")
 
-    obs = eval_env.reset()
-    for ep in range(episodes):
-        ep_ret, ep_len = 0.0, 0
-        while True:
-            action, _ = model.predict(obs, deterministic=deterministic)
-            obs, reward, done, info = eval_env.step(action)
-            ep_ret += float(reward[0])
-            ep_len += 1
-            if done[0]:
-                print(f"[Episode {ep+1}] return={ep_ret:.2f} len={ep_len}")
-                obs = eval_env.reset()
-                break
+                    print(f"[Episode {ep+1}] return={ep_ret:.2f} len={ep_len} ")
+                    obs = eval_env.reset()
+                else:
+                    obs = next_obs
     eval_env.close()
 
 # ======= 入口 =======
 if __name__ == "__main__":
     train(
-        total_steps=int(1e4),
-        n_envs=16,          # 训练时建议多环境
-        n_steps=64,
-        batch_size=512,
+        total_steps=int(5e7),
+        n_envs=16,
+        n_steps=128,
+        batch_size=1024,
         gamma=0.99,
-        ent_coef=1e-3,
+        ent_coef=3e-3,
         seed=0,
         save_freq=51200,
         resume=True,
         n_epochs=8,
+        steps_per_cycle=int(1e4),  # ★ 滚动重启频率
     )
+
     # test_model()  # 训练完单独跑评估时打开
