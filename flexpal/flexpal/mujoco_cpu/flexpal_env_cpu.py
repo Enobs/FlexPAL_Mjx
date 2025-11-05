@@ -71,7 +71,7 @@ class FlexPALSB3Env(gym.Env):
         w_du: float = 1e-2,
         r_bonus: float = 8.0,
         K_substeps: int = 10,
-        max_episode_steps: int = 200,
+        max_episode_steps: int = 100,
         render_mode: Optional[str] = None,
         render_width: int = 960,
         render_height: int = 720,
@@ -347,7 +347,6 @@ class FlexPALSB3Env(gym.Env):
 
         u_new = self.alpha * L_prev + (1.0 - self.alpha) * L_target
 
-        prev_snapshot = self._clone_core_state() 
         self._set_ctrl(u_new)
         self._step_physics()
 
@@ -357,7 +356,29 @@ class FlexPALSB3Env(gym.Env):
 
         du_pen = float(np.mean((u_new - L_prev) ** 2))
         reward = r_shape - self.w_du * du_pen
-
+        
+        if self._prev_pos_err is None:
+            self._prev_pos_err = pos_err
+        delta = self._prev_pos_err - pos_err  # >0 表示靠近
+        r_prog = self.beta_prog * max(min(delta, self.tol_pos), -self.tol_pos)
+        # 近端轻微加强：越接近越重视进步
+        near = max(0.0, 1.0 - pos_err / (2.0 * self.tol_pos))
+        r_prog *= (1.0 + 0.5 * near)
+        reward += r_prog
+        self._prev_pos_err = pos_err
+        terminated = False
+        # --- 早停：无进步 + 动作饱和 ---
+        self._prog_hist.append(delta)
+        if len(self._prog_hist) > self.stall_win:
+            self._prog_hist.pop(0)
+        sat_frac = float(np.mean(np.abs(a) >= self.sat_eps))
+        if len(self._prog_hist) == self.stall_win:
+            avg_prog = sum(self._prog_hist)/self.stall_win
+            if avg_prog < self.stall_eps and sat_frac > self.sat_frac_th and not terminated:
+                reward -= 0.2
+                terminated = True
+        
+        
         if self.use_time_scale:
             reward -= self.step_penalty * self.control_period
         else:
@@ -390,77 +411,6 @@ class FlexPALSB3Env(gym.Env):
                 self._last_rgb = self._renderer.render()
 
         return obs, reward, terminated, truncated, info
-
-
-
-
-        # --------- 进步塑形 (policy-invariant) ----------
-        if not hasattr(self, "_prev_pos_err") or self._prev_pos_err is None:
-            self._prev_pos_err = float(pos_err)
-
-        if not hasattr(self, "beta_prog"):
-            self.beta_prog = 0.3     # 可在 __init__ 固定配置
-        if not hasattr(self, "_prog_hist"):
-            self._prog_hist = []
-            self.stall_win    = 15   # 连续观察步数
-            self.stall_eps    = 1e-4 # 平均进步阈值(米)
-            self.sat_frac_th  = 0.30 # 动作饱和占比阈值
-            self.sat_eps      = 0.98 # |a|>=sat_eps 视为饱和
-
-        delta = float(self._prev_pos_err - pos_err)  # >0 表示更接近
-        r_prog = self.beta_prog * max(min(delta, float(self.tol_pos)), -float(self.tol_pos))
-        # 近端加权：越靠近目标，进步奖励略放大
-        denom = max(1e-8, 2.0 * float(self.tol_pos))
-        near  = max(0.0, 1.0 - float(pos_en) / denom) if denom > 0 else 0.0
-        r_prog *= (1.0 + 0.5 * near)
-        reward += r_prog
-        self._prev_pos_err = float(pos_err)
-
-        # --------- 成功检测（保持你的 ok/hold_steps 逻辑） ----------
-        if self.goal_dim == 3:
-            ok = (pos_err < self.tol_pos)
-        else:
-            ok = (pos_err < self.tol_pos) and (ang_err < self.tol_ang)
-
-        self._success_streak = self._success_streak + 1 if ok else 0
-        terminated = bool(self._success_streak >= self.hold_steps)
-        if terminated:
-            reward += self.r_bonus
-
-        # --------- 早停：无进步 + 动作长期饱和 ----------
-        # 把最近的进步记录进窗口
-        self._prog_hist.append(delta)
-        if len(self._prog_hist) > self.stall_win:
-            self._prog_hist.pop(0)
-        sat_frac = float(np.mean(np.abs(a) >= self.sat_eps))
-
-        if (not terminated) and len(self._prog_hist) == self.stall_win:
-            avg_prog = float(np.mean(self._prog_hist))
-            if (avg_prog < self.stall_eps) and (sat_frac > self.sat_frac_th):
-                # 轻微负奖，避免长时间原地推不动
-                reward -= 0.2
-                terminated = True
-
-        truncated = bool(self._timestep >= self.max_episode_steps)
-
-        obs = self._obs_from_data()
-        info = {
-            "pos_err": float(pos_err),
-            "ang_err": float(ang_err),
-            "time_limit": truncated,
-            "success": bool(terminated and not truncated),
-            "r_prog": float(r_prog),
-        }
-
-        if self._renderer is not None:
-            self._renderer.update(self.model, self.data)
-            if self.render_mode == "human":
-                self._renderer.render()
-            elif self._render_w is not None:
-                self._last_rgb = self._renderer.render()
-
-        return obs, float(reward), bool(terminated), bool(truncated), info
-
 
     # ---------- Render API ----------
     def render(self):
@@ -531,7 +481,6 @@ class FlexPALSB3Env(gym.Env):
         self._renderer = None
 
 
-
 if __name__ == "__main__":
     env = FlexPALSB3Env(
         xml_path="/home/yinan/Documents/FlexPAL_Mjx/flexpal/flexpal/model/pickandplace.xml",
@@ -542,11 +491,12 @@ if __name__ == "__main__":
         max_episode_steps=1000,
     )
     obs, info = env.reset()
-    a = 0
-    action = np.array([-1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=np.float32)[:env.nu]
-    for i in range(100):
+    a = [0,0]
+    action = np.array([-1, 1, -1, 1, -1, 1, -1, 1, -1], dtype=np.float32)[:env.nu]
+    while True:
         obs, rew, term, trunc, info = env.step(action)
-        a += rew
+        a[1] += rew
+        a[0] += 1
         if term or trunc:
             break
-    print("done:", term, "truncated:", trunc, "reward:", rew, "iter:", i ,"rew_sum=", a)
+    print("done:", term, "truncated:", trunc, "reward:", rew, "iter:", a[0] ,"rew_sum=", a[1])
