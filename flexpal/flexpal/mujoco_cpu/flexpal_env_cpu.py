@@ -62,7 +62,7 @@ class FlexPALSB3Env(gym.Env):
         control_freq: float = 250.0,
         tol_pos: float = 1e-2,
         tol_ang: float = 1e-1,
-        hold_steps: int = 3,
+        hold_steps: int = 2,
         alpha_smooth: float = 0.0,
         action_mode: str = "absolute",
         dL_max: float = 0.06,
@@ -370,16 +370,16 @@ class FlexPALSB3Env(gym.Env):
         reward += r_prog
         self._prev_pos_err = pos_err
         terminated = False
-        # --- 早停：无进步 + 动作饱和 ---
-        self._prog_hist.append(delta)
-        if len(self._prog_hist) > self.stall_win:
-            self._prog_hist.pop(0)
-        sat_frac = float(np.mean(np.abs(a) >= self.sat_eps))
-        if len(self._prog_hist) == self.stall_win:
-            avg_prog = sum(self._prog_hist)/self.stall_win
-            if avg_prog < self.stall_eps and sat_frac > self.sat_frac_th and not terminated:
-                reward -= 0.2
-                terminated = True
+        # # --- 早停：无进步 + 动作饱和 ---
+        # self._prog_hist.append(delta)
+        # if len(self._prog_hist) > self.stall_win:
+        #     self._prog_hist.pop(0)
+        # sat_frac = float(np.mean(np.abs(a) >= self.sat_eps))
+        # if len(self._prog_hist) == self.stall_win:
+        #     avg_prog = sum(self._prog_hist)/self.stall_win
+        #     if avg_prog < self.stall_eps and sat_frac > self.sat_frac_th and not terminated:
+        #         reward -= 0.2
+        #         terminated = True
         
         
         if self.use_time_scale:

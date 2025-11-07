@@ -4,12 +4,14 @@ import time
 import torch
 import gymnasium as gym
 from typing import Optional
-from stable_baselines3 import PPO
+from stable_baselines3 import SAC
+from stable_baselines3.her import HER
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecNormalize
 import flexpal.mujoco_cpu
 import multiprocessing as mp
+import numpy as np
 
 # ======= 基础加速与隔离 =======
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -28,10 +30,10 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 LOG_DIR = "log"
-SAVE_DIR = os.path.join(LOG_DIR, "model_saved", "PPO")
+SAVE_DIR = os.path.join(LOG_DIR, "model_saved", "HER_SAC")
 os.makedirs(SAVE_DIR, exist_ok=True)
 
-MODEL_PREFIX = "PPO_SOFT_ROBOT"
+MODEL_PREFIX = "HER_SAC_SOFT_ROBOT"
 TB_DIR = LOG_DIR  # SB3 自带 tensorboard_log 写到 LOG_DIR
 
 # ======= 工具函数 =======
@@ -44,12 +46,8 @@ def _vecnorm_path_from_ver(ver: int) -> str:
     return os.path.join(SAVE_DIR, f"vecnormalize_{ver}.pkl")
 
 def _clone_vecnorm_stats(src_vn: VecNormalize, dst_vn: VecNormalize):
-    """
-    兼容新版 VecNormalize：复制 obs_rms / ret_rms 统计量。
-    """
-
+    """复制 obs_rms / ret_rms 统计量（VecNormalize 新旧兼容）"""
     def _copy_rms(src_rms, dst_rms):
-        # 支持单个 RunningMeanStd 或 dict
         if isinstance(src_rms, dict) and isinstance(dst_rms, dict):
             for key in src_rms.keys():
                 if key not in dst_rms:
@@ -61,15 +59,9 @@ def _clone_vecnorm_stats(src_vn: VecNormalize, dst_vn: VecNormalize):
             dst_rms.mean  = src_rms.mean.copy()
             dst_rms.var   = src_rms.var.copy()
             dst_rms.count = float(src_rms.count)
-
-    # ---- 拷贝 observation 统计 ----
     _copy_rms(src_vn.obs_rms, dst_vn.obs_rms)
-
-    # ---- 拷贝 reward 统计 ----
     if src_vn.ret_rms is not None and dst_vn.ret_rms is not None:
         _copy_rms(src_vn.ret_rms, dst_vn.ret_rms)
-
-    # ---- 保持配置一致 ----
     dst_vn.clip_obs     = src_vn.clip_obs
     dst_vn.clip_reward  = src_vn.clip_reward
     dst_vn.gamma        = src_vn.gamma
@@ -80,30 +72,25 @@ def _clone_vecnorm_stats(src_vn: VecNormalize, dst_vn: VecNormalize):
 def _rebuild_env_and_swap(model, n_envs: int, gamma: float = 0.99):
     """
     关闭旧的 SubprocVecEnv，重建新的子进程，并把 VecNormalize 的统计量拷过去。
+    兼容 HER(SAC)：off-policy 也可以 set_env。
     """
     old_env = model.get_env()
     assert isinstance(old_env, VecNormalize), "train() 里请确保最外层是 VecNormalize"
 
-    # 1) 新建一套 env 进程
     new_vec = make_vec_envs(n_envs=n_envs, use_subproc=True)
-    new_env = VecNormalize(new_vec, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=gamma)
+    # HER/SAC 下建议 norm_reward=False（避免稀疏奖励被缩放）
+    new_env = VecNormalize(new_vec, norm_obs=True, norm_reward=False, clip_obs=10.0, gamma=gamma)
     new_env.training = True
-    new_env.norm_reward = True
+    new_env.norm_reward = False
 
-    # 2) 拷贝统计量
     _clone_vecnorm_stats(old_env, new_env)
-
-    # 3) 切换模型的 env
     model.set_env(new_env)
 
-    # 4) 关闭旧 env（释放旧子进程/Fd/内存）
     try:
         old_env.close()
     except Exception:
         pass
-
     return new_env
-
 
 def find_latest_version(file_prefix: str, directory: str):
     highest = -1
@@ -126,7 +113,7 @@ def latest_model_path(prefix: str, directory: str) -> Optional[str]:
 
 # ======= 回调：定期保存（模型 + 对应 VecNormalize）=======
 class TensorboardCheckpointCallback(BaseCallback):
-    def __init__(self, save_dir: str, algo_tag: str = "PPO",
+    def __init__(self, save_dir: str, algo_tag: str = "HER_SAC",
                  save_freq: int = 51200, verbose: int = 0):
         super().__init__(verbose)
         self.save_dir = save_dir
@@ -151,6 +138,7 @@ class TensorboardCheckpointCallback(BaseCallback):
 # ======= 并行环境 =======
 def make_env():
     def _init():
+        # 建议将你的 ENV_KW 显式传入 gym.make("Gym_softmujoco-v0", **ENV_KW)
         env = gym.make("Gym_softmujoco-v0")
         env = Monitor(env)
         env.reset()
@@ -160,72 +148,96 @@ def make_env():
 def make_vec_envs(n_envs: int, use_subproc: bool = True):
     Vec = SubprocVecEnv if (use_subproc and n_envs > 1) else DummyVecEnv
     if Vec is SubprocVecEnv:
-        return Vec([make_env() for _ in range(n_envs)], start_method="forkserver")  # or "spawn"
+        return Vec([make_env() for _ in range(n_envs)], start_method="forkserver")
     return Vec([make_env() for _ in range(n_envs)])
-def train(total_steps: int = int(5e7),
-          n_envs: int = 16,
-          n_steps: int = 128,
-          batch_size: int = 1024,
-          ent_coef: float = 3e-3,
-          gamma: float = 0.99,
+
+# ======= HER 的 reward 函数（dense + bonus，兼容 3D 位置目标）=======
+def her_compute_reward(achieved_goal, desired_goal, info):
+    """
+    achieved_goal, desired_goal: (..., D)
+    这里按位置前三维计算距离；阈值与奖励可按需调整。
+    """
+    ag = np.asarray(achieved_goal)[..., :3]
+    dg = np.asarray(desired_goal)[..., :3]
+    dist = np.linalg.norm(ag - dg, axis=-1)
+
+    # dense 负距离 + 命中奖励（更接近“成功率”）
+    reward = -dist
+    reward = np.where(dist < 0.015, reward + 20.0, reward)  # tol≈1.5cm 时 +20
+    return reward
+
+# ======= 训练（SAC + HER）=======
+def train(total_steps: int = int(2e7),
+          n_envs: int = 8,
+          gamma: float = 0.98,
           seed: int = 0,
           save_freq: int = 51200,
           resume: bool = False,
-          n_epochs: int = 8,
-          steps_per_cycle: int = int(1e7)):   # ★ 每个周期的步数
-    policy_kwargs = dict(net_arch=[128, 128])
+          steps_per_cycle: int = int(5e6)):   # 每个周期后重启子进程
+    # === VecEnv + VecNormalize ===
+    envs = make_vec_envs(n_envs=n_envs, use_subproc=True)
+    # HER/SAC：norm_obs=True, norm_reward=False
+    env = VecNormalize(envs, norm_obs=True, norm_reward=False, clip_obs=10.0, gamma=gamma)
+    env.training = True
+    env.norm_reward = False
 
-    # === 构造 env + model（与你现有逻辑一致） ===
+    # === SAC 的超参 ===
+    sac_kwargs = dict(
+        policy="MultiInputPolicy",
+        learning_rate=3e-4,
+        buffer_size=int(2e6),
+        learning_starts=10000,
+        batch_size=512,
+        tau=0.02,
+        gamma=gamma,
+        train_freq=256,
+        gradient_steps=256,
+        ent_coef="auto",
+        verbose=1,
+        device=DEVICE,
+        tensorboard_log=TB_DIR,
+        policy_kwargs=dict(net_arch=[512, 512, 512]),
+        seed=seed,
+    )
+
     last_path = latest_model_path(MODEL_PREFIX, SAVE_DIR) if resume else None
     if resume and last_path and os.path.exists(last_path):
         print(f"[Resume] Loading {last_path}")
-        envs = make_vec_envs(n_envs=n_envs, use_subproc=True)
+        # 载入 HER 包装的模型
+        model = HER.load(last_path, env=env, device=DEVICE)
+        # 注意：HER.load 会自动恢复 SAC 的内部状态；VecNormalize 统计需你自己加载（见下）
+        # 如需同时恢复 VecNormalize 统计，请在下面加载（本脚本的 checkpoint 已会保存 vecnorm）
         ver = _extract_ver_from_name(last_path)
         vn_file = _vecnorm_path_from_ver(ver) if ver is not None else None
         if vn_file and os.path.exists(vn_file):
-            env = VecNormalize.load(vn_file, envs)
+            env2 = VecNormalize.load(vn_file, envs)  # 用新的子进程包上统计
+            env2.training = True
+            env2.norm_reward = False
+            _clone_vecnorm_stats(env, env2)
+            model.set_env(env2)
+            env = model.get_env()
             print(f"[Resume] Loaded VecNormalize from {vn_file}")
         else:
-            env = VecNormalize(envs, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=gamma)
-            print("[Resume] VecNormalize not found; started fresh statistics")
-        env.training = True
-        env.norm_reward = True
-        model = PPO.load(last_path, env=env, device=DEVICE)
+            print("[Resume] VecNormalize not found; keep current stats")
     else:
         if resume:
             print("[Resume] No previous model found, starting fresh.")
-        envs = make_vec_envs(n_envs=n_envs, use_subproc=True)
-        env = VecNormalize(envs, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=gamma)
-        env.training = True
-        env.norm_reward = True
-        model = PPO(
+        # === 创建 HER(SAC) 模型 ===
+        model = HER(
             policy="MultiInputPolicy",
             env=env,
-            device=DEVICE,
-            n_steps=n_steps,
-            batch_size=batch_size,
-            ent_coef=ent_coef,
-            gamma=gamma,
-            learning_rate=1e-4,
-            target_kl=0.02,
-            max_grad_norm=0.3,
-            n_epochs=n_epochs,
-            gae_lambda=0.95,
-            tensorboard_log=TB_DIR,
-            seed=seed,
-            verbose=1,
-            policy_kwargs=policy_kwargs,
+            model_class=SAC,
+            n_sampled_goal=4,
+            goal_selection_strategy="future",
+            online_sampling=True,
+            max_episode_length=100,            # 和 env 的每局上限一致
+            compute_reward=her_compute_reward, # 使用上面的 dense+bonus
+            **sac_kwargs,
         )
 
     callback = TensorboardCheckpointCallback(save_dir=SAVE_DIR, save_freq=save_freq, verbose=1)
 
-    # 可选 warmup（你保留原逻辑即可）
-    warmup = 0 if resume else max(n_envs * 2, 2048)
-    if warmup > 0:
-        print(f"[Warmup] {warmup} steps (not counted)")
-        model.learn(total_timesteps=warmup, reset_num_timesteps=False, progress_bar=False)
-
-    # === 分段训练 + 周期性重启 env 进程 ===
+    # === 训练（分周期 + 重启子进程，迁移 VecNormalize 统计）===
     done = 0
     t0 = time.time()
     while done < total_steps:
@@ -234,34 +246,32 @@ def train(total_steps: int = int(5e7),
         model.learn(total_timesteps=run, reset_num_timesteps=False, callback=callback, progress_bar=False)
         done += run
 
-        # 周期结束：重启 SubprocVecEnv，并保留 VecNormalize 统计量
         if done < total_steps:
             _rebuild_env_and_swap(model, n_envs=n_envs, gamma=gamma)
             print("[Cycle] Rebuilt SubprocVecEnv and migrated VecNormalize stats.")
 
     t1 = time.time()
     print("=" * 60)
-    print(f"[PPO] total_steps={total_steps:,} | n_envs={n_envs} | device={DEVICE}")
+    print(f"[HER+SAC] total_steps={total_steps:,} | n_envs={n_envs} | device={DEVICE}")
     print(f"Elapsed: {t1 - t0:.2f}s")
     print("=" * 60)
 
-    # 末尾保存（同你现有逻辑）
+    # 末尾保存
     _, next_ver = find_latest_version(MODEL_PREFIX, SAVE_DIR)
     final_path = os.path.join(SAVE_DIR, f"{MODEL_PREFIX}_{next_ver}")
     model.save(final_path)
     print(f"[Save] Final model -> {final_path}")
 
-    env = model.get_env()
-    if isinstance(env, VecNormalize):
+    vec = model.get_env()
+    if isinstance(vec, VecNormalize):
         vn_path = _vecnorm_path_from_ver(next_ver)
-        env.save(vn_path)
+        vec.save(vn_path)
         print(f"[Save] VecNormalize -> {vn_path}")
 
-    env.close()
+    vec.close()
 
-
-# ======= 测试 =======
-def test_model(model_path: Optional[str] = None, deterministic: bool = True, episodes: int = 5):
+# ======= 测试（评估成功率/距离；默认 deterministic=True）=======
+def test_model(model_path: Optional[str] = None, deterministic: bool = True, episodes: int = 20):
     if model_path is None:
         model_path = latest_model_path(MODEL_PREFIX, SAVE_DIR)
     assert model_path and os.path.exists(model_path), f"Model not found: {model_path}"
@@ -280,46 +290,59 @@ def test_model(model_path: Optional[str] = None, deterministic: bool = True, epi
     eval_env.training = False
     eval_env.norm_reward = False
 
-    model = PPO.load(model_path, env=eval_env, device=DEVICE)
-    while True:
-        obs = eval_env.reset()
-        for ep in range(episodes):
-            ep_ret, ep_len = 0.0, 0
-            done = [False]
-            while not done[0]:
-                action, _ = model.predict(obs, deterministic=deterministic)
-                next_obs, reward, done, info = eval_env.step(action)
-                ep_ret += float(reward[0])
-                ep_len += 1
-                if done[0]:
-                    term = info[0].get("terminal_observation") or info[0].get("final_observation")
-                    if term is not None and hasattr(eval_env, "unnormalize_obs"):
-                        term_orig = eval_env.unnormalize_obs(term)
-                        print(f"[Episode {ep+1}] terminal achieved_goal={term_orig['achieved_goal']} "
-                            f"desired_goal={term_orig['desired_goal']}")
-                    if info[0].get("TimeLimit.truncated", False):
-                        print("[Episode {ep+1}] truncated by time limit")
+    # 加载 HER 模型
+    model = HER.load(model_path, env=eval_env, device=DEVICE)
 
-                    print(f"[Episode {ep+1}] return={ep_ret:.2f} len={ep_len} ")
-                    obs = eval_env.reset()
+    succ_cnt, dist_sum, ret_sum = 0, 0.0, 0.0
+    for ep in range(episodes):
+        obs = eval_env.reset()
+        ep_ret, ep_len = 0.0, 0
+        done = [False]
+        while not done[0]:
+            action, _ = model.predict(obs, deterministic=deterministic)
+            next_obs, reward, done, info = eval_env.step(action)
+            ep_ret += float(reward[0]); ep_len += 1
+            if done[0]:
+                term = info[0].get("terminal_observation") or info[0].get("final_observation")
+                if term is not None and hasattr(eval_env, "unnormalize_obs"):
+                    term_orig = eval_env.unnormalize_obs(term)
+                    ag = term_orig["achieved_goal"]; dg = term_orig["desired_goal"]
+                    print(f"[Episode {ep+1}] terminal achieved_goal={ag} desired_goal={dg}")
+
+                if info[0].get("time_limit", False):  # 修正键名
+                    print(f"[Episode {ep+1}] truncated by time limit")
+
+                succ = bool(info[0].get("success", False))
+                # 如果 env 的 info 没有 pos_err，就自己算一个（反归一化后的）
+                if term is not None and hasattr(eval_env, "unnormalize_obs"):
+                    agp = np.asarray(ag[0][:3], dtype=np.float32)
+                    dgp = np.asarray(dg[0][:3], dtype=np.float32)
+                    dist = float(np.linalg.norm(agp - dgp))
                 else:
-                    obs = next_obs
+                    dist = float(info[0].get("pos_err", 0.0))
+
+                succ_cnt += int(succ); dist_sum += dist; ret_sum += ep_ret
+                print(f"[Episode {ep+1}] return={ep_ret:.2f} len={ep_len} success={succ} pos_err={dist:.4f}")
+                obs = eval_env.reset()
+            else:
+                obs = next_obs
+
+    print(f"[Eval] episodes={episodes} | success_rate={succ_cnt/episodes:.3f} | "
+          f"avg_pos_err={dist_sum/episodes:.4f} | avg_return_raw={ret_sum/episodes:.2f} | "
+          f"deterministic={deterministic}")
     eval_env.close()
 
 # ======= 入口 =======
 if __name__ == "__main__":
-    train(
-        total_steps=int(5e7),
-        n_envs=16,
-        n_steps=128,
-        batch_size=1024,
-        gamma=0.99,
-        ent_coef=3e-3,
-        seed=0,
-        save_freq=51200,
-        resume=True,
-        n_epochs=8,
-        steps_per_cycle=int(1e4),  # ★ 滚动重启频率
-    )
-
-    # test_model()  # 训练完单独跑评估时打开
+    # 训练：
+    # train(
+    #     total_steps=int(2e7),
+    #     n_envs=8,
+    #     gamma=0.98,
+    #     seed=0,
+    #     save_freq=51200,
+    #     resume=False,
+    #     steps_per_cycle=int(5e6),
+    # )
+    # 测试：
+    test_model(deterministic=True, episodes=20)
