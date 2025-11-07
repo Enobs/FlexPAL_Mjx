@@ -151,7 +151,7 @@ class TensorboardCheckpointCallback(BaseCallback):
 # ======= 并行环境 =======
 def make_env():
     def _init():
-        env = gym.make("Gym_softmujoco-v0")
+        env = gym.make("Gym_softmujoco-v0_PPO")
         env = Monitor(env)
         env.reset()
         return env
@@ -308,18 +308,18 @@ def test_model(model_path: Optional[str] = None, deterministic: bool = False, ep
 
 # ======= 入口 =======
 if __name__ == "__main__":
-    # train(
-    #     total_steps=int(5e7),
-    #     n_envs=16,
-    #     n_steps=128,
-    #     batch_size=1024,
-    #     gamma=0.99,
-    #     ent_coef=3e-3,
-    #     seed=0,
-    #     save_freq=51200,
-    #     resume=True,
-    #     n_epochs=8,
-    #     steps_per_cycle=int(1e4),  # ★ 滚动重启频率
-    # )
+    train(
+        total_steps=int(5e7),
+        n_envs=1,
+        n_steps=128,
+        batch_size=1024,
+        gamma=0.99,
+        ent_coef=3e-3,
+        seed=0,
+        save_freq=51200,
+        resume=True,
+        n_epochs=8,
+        steps_per_cycle=int(1e4),  # ★ 滚动重启频率
+    )
 
-    test_model()  # 训练完单独跑评估时打开
+    # test_model()  # 训练完单独跑评估时打开
